@@ -117,23 +117,28 @@ class SystemNavigator:
                     # Pitch: positive typically means looking down, negative looking up.
                     # OpenCV conventions can vary depending on exact 3D model used. Let's assume standard right-handed.
 
-                    # Disabled Yaw Right to prevent accidental window minimizing when looking at edges
-                    # if yaw > self.yaw_threshold:
-                    #     print("System Navigator: Yaw Right detected. Minimizing window.")
-                    #     pyautogui.hotkey('win', 'd')
-                    #     self.last_action_time = now
-
-                    if yaw < -self.yaw_threshold:
-                        print("System Navigator: Yaw Left detected. Alt+Tab.")
-                        pyautogui.hotkey('alt', 'tab')
+                    # Yaw Right -> Browser Forward (Alt+Right Arrow)
+                    if yaw > self.yaw_threshold:
+                        print("System Navigator: Yaw Right detected. Browser Forward.")
+                        pyautogui.hotkey('alt', 'right')
                         self.last_action_time = now
+
+                    # Yaw Left -> Browser Back (Alt+Left Arrow)
+                    elif yaw < -self.yaw_threshold:
+                        print("System Navigator: Yaw Left detected. Browser Back.")
+                        pyautogui.hotkey('alt', 'left')
+                        self.last_action_time = now
+
+                    # Pitch Down -> Show Desktop / Minimize All (Win+D)
                     elif pitch > self.pitch_threshold:
-                        print("System Navigator: Pitch Down detected. (No action bound)")
-                        pass
+                        print("System Navigator: Pitch Down detected. Show Desktop.")
+                        pyautogui.hotkey('win', 'd')
+                        self.last_action_time = now
+
+                    # Pitch Up -> Scroll Up (Pairs well with Jaw Open for Scroll Down)
                     elif pitch < -self.pitch_threshold:
-                        print("System Navigator: Pitch Up detected. Opening terminal.")
-                        # Common terminal shortcut in Ubuntu/Debian: ctrl+alt+t
-                        pyautogui.hotkey('ctrl', 'alt', 't')
+                        print("System Navigator: Pitch Up detected. Scroll Up.")
+                        pyautogui.scroll(50)
                         self.last_action_time = now
 
             except queue.Empty:

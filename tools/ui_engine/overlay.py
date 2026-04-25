@@ -136,7 +136,7 @@ class UIOverlay:
                 cv2.putText(frame, f"R-EYE: {right_status}", (20, 50), font, 0.4, (0, 255, 0) if right_status=="OPEN" else (0, 0, 255), 1)
 
                 if self.is_blinking:
-                    cv2.putText(frame, "CLICK TRIGGER", (180, 40), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 255), 1)
+                    cv2.putText(frame, "RIGHT CLICK", (180, 40), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 255), 1)
 
                 # Draw Drag-Lock Status
                 is_locked = payload.get('is_locked', False)

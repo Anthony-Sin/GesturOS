@@ -39,17 +39,17 @@ class ActionDispatcher:
 
                 now = time.time()
 
-                # Check Blink (Closing Eyes) -> Click
-                # User specifically requested that closing eyes over the nearest object clicks (not necessarily a single wink).
+                # Check Blink (Closing Eyes) -> Right Click
+                # Lowered threshold to 0.45 to make it easier to trigger.
                 blink_left = blendshapes.get('eyeBlinkLeft', 0.0)
                 blink_right = blendshapes.get('eyeBlinkRight', 0.0)
 
-                # If both eyes are closed, trigger a click
-                is_blink = (blink_left > 0.65 and blink_right > 0.65)
+                # If both eyes are closed, trigger a right click
+                is_blink = (blink_left > 0.45 and blink_right > 0.45)
 
                 if is_blink and (now - self.last_blink_time > self.cooldown_blink):
-                    print("Action: Blink Click triggered!")
-                    pyautogui.click()
+                    print("Action: Right Click triggered!")
+                    pyautogui.rightClick()
                     self.last_blink_time = now
 
                 # Check Jaw Open -> Scroll Down
@@ -60,17 +60,15 @@ class ActionDispatcher:
                     pyautogui.scroll(-50) # Scroll down (negative value usually)
                     self.last_jaw_time = now
 
-                # Check Smile -> Browser Back / Escape
-                # mouthSmileLeft and mouthSmileRight often combined, or just one
-                # MediaPipe gives mouthSmileLeft / mouthSmileRight
+                # Check Smile -> Enter
+                # Very useful for submitting forms, opening files, finishing searches
                 smile_left = blendshapes.get('mouthSmileLeft', 0.0)
                 smile_right = blendshapes.get('mouthSmileRight', 0.0)
                 smile_avg = (smile_left + smile_right) / 2.0
 
-                if smile_avg > 0.70 and (now - self.last_smile_time > self.cooldown_smile):
-                    print("Action: Smile triggered! (Escape/Browser Back)")
-                    # We can use browserback or esc. Let's use 'browserback' which PyAutoGUI supports, or fallback to 'esc'.
-                    pyautogui.press('browserback') # Sends the multimedia back key
+                if smile_avg > 0.60 and (now - self.last_smile_time > self.cooldown_smile):
+                    print("Action: Smile triggered! (Enter)")
+                    pyautogui.press('enter')
                     self.last_smile_time = now
 
             except queue.Empty:

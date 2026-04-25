@@ -6,14 +6,15 @@ A local desktop service built in Python that acts as a hands-free accessibility 
 
 - **Cursor Engine**: Moves your mouse cursor based on the position of your nose. Uses an Exponential Moving Average (EMA) for smoothness and an "Active Zone" scaling multiplier so that small head movements map to the full screen, reducing physical strain.
 - **Action Dispatcher**: Translates your facial expressions into actions:
-  - **Blink** (Left or Right) -> Mouse Click
+  - **Blink** (Close Both Eyes) -> Right Click
   - **Jaw Open** -> Scroll Down
-  - **Smile** -> Browser Back (or Escape)
-- **System Navigator**: Translates extreme head poses into OS macros:
-  - **Yaw Left** -> `Alt + Tab`
-  - **Yaw Right** -> Minimize Window (`Win + D`)
-  - **Pitch Up** -> Open Terminal (`Ctrl + Alt + T`)
-- **UI Overlay**: A small, always-on-top window at the bottom right corner showing the camera feed, a trailing path of your nose movement, and a visual "CLICK!" indicator when you blink.
+  - **Smile** -> Enter
+- **System Navigator**: Translates extreme head poses into OS macros for practical navigation:
+  - **Yaw Left** -> Browser Back (`Alt + Left`)
+  - **Yaw Right** -> Browser Forward (`Alt + Right`)
+  - **Pitch Up** -> Scroll Up
+  - **Pitch Down** -> Show Desktop (`Win + D`)
+- **UI Overlay**: A modern, draggable, borderless HUD at the bottom right corner showing the camera feed, a trailing path of your nose movement, live eye-tracking status, and a visual indicator when you blink.
 - **Multithreaded Architecture**: The heavy vision processing runs independently from the OS command execution and UI loops, ensuring lag-free operation.
 
 ## Installation
