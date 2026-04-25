@@ -103,9 +103,16 @@ class VisionPipeline:
                             self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
                             self.anchor_start_time = current_time
                         else:
-                            # Calculate progress
+                            # Calculate progress (starts showing after 3 seconds)
                             elapsed = current_time - self.anchor_start_time
-                            lock_progress = min(1.0, elapsed / self.lock_duration_threshold)
+                            # Total duration is 5s (by default). The first 3s are hidden. The last 2s show progress 0 -> 1.0
+                            hide_duration = 3.0
+
+                            if elapsed > hide_duration:
+                                visible_duration = self.lock_duration_threshold - hide_duration
+                                lock_progress = min(1.0, (elapsed - hide_duration) / visible_duration)
+                            else:
+                                lock_progress = 0.0
 
                             # Check if duration has passed
                             if elapsed >= self.lock_duration_threshold:

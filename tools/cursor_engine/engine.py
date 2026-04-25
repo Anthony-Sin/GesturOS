@@ -95,6 +95,11 @@ class CursorEngine:
 
                 # Dynamic Sensitivity: Slow down when head is moving very little
                 skip_movement = False
+
+                # Check for Lock-in Slowdown Effect
+                lock_progress = payload.get('lock_progress', 0.0)
+                is_locking = lock_progress > 0.0 or is_locked
+
                 if self.last_raw_x is not None and self.last_raw_y is not None:
                     dx = raw_x - self.last_raw_x
                     dy = raw_y - self.last_raw_y
@@ -103,8 +108,11 @@ class CursorEngine:
                     # Micro-deadzone: If movement is practically zero, ignore it completely to prevent jitter when trying to hold perfectly still.
                     if velocity < self.deadzone_velocity:
                         skip_movement = True
+                    elif is_locking:
+                        # Ultra-precision mode while the lock is engaging or active ("slow down everything")
+                        self.alpha = self.precision_alpha * 0.2
                     elif velocity < self.velocity_threshold:
-                        # Enter precision mode (high smoothing, slow movement)
+                        # Enter standard precision mode (high smoothing, slow movement)
                         self.alpha = self.precision_alpha
                     else:
                         # Exit precision mode (fast movement)

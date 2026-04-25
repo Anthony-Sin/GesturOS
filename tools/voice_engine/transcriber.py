@@ -10,11 +10,16 @@ class VoiceTranscriber:
         self.microphone = sr.Microphone()
         self.running = False
 
+        # Configure recognizer for better responsiveness
+        self.recognizer.dynamic_energy_threshold = True
+        self.recognizer.energy_threshold = 300 # Lower threshold to catch quieter speech
+        self.recognizer.pause_threshold = 0.8  # Shorter pause to end phrase quickly
+
         # Adjust for ambient noise on startup
         with self.microphone as source:
             print("Adjusting microphone for ambient noise...")
-            self.recognizer.adjust_for_ambient_noise(source, duration=1)
-            print("Microphone ready.")
+            self.recognizer.adjust_for_ambient_noise(source, duration=2)
+            print(f"Microphone ready. Energy threshold: {self.recognizer.energy_threshold}")
 
     def start(self):
         self.running = True
@@ -37,9 +42,10 @@ class VoiceTranscriber:
             try:
                 state["voice_status"] = "Listening for 'transcribe me'..."
                 with self.microphone as source:
-                    # Listen in short chunks. Use slightly longer phrase limit to ensure we catch the full phrase.
-                    audio = self.recognizer.listen(source, timeout=3, phrase_time_limit=7)
+                    # Listen without strict timeout so we don't abort mid-speech
+                    audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=10)
 
+                state["voice_status"] = "Processing..."
                 # Use Google Web Speech API (free, doesn't require API key for light usage)
                 text = self.recognizer.recognize_google(audio).lower()
                 print(f"[Voice Heard]: {text}")
@@ -73,9 +79,8 @@ class VoiceTranscriber:
         while self.running and state["dictation_active"]:
             try:
                 with self.microphone as source:
-                    # Use a short timeout so it doesn't block forever if silent,
-                    # but a long phrase limit to capture full flowing sentences.
-                    audio = self.recognizer.listen(source, timeout=3, phrase_time_limit=15)
+                    # Listen continuously until silence
+                    audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=15)
 
                 text = self.recognizer.recognize_google(audio).lower()
                 print(f"Dictated Chunk: {text}")

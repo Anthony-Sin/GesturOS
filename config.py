@@ -9,9 +9,9 @@ class Config:
 
     # --- Cursor Engine ---
     ACTIVE_ZONE_X_CENTER = 0.5
-    ACTIVE_ZONE_Y_CENTER = 0.5
+    ACTIVE_ZONE_Y_CENTER = 0.6       # shifted down so the user doesn't have to tilt their head up as high
     ACTIVE_ZONE_WIDTH = 0.18         # slightly wider to require more left/right movement
-    ACTIVE_ZONE_HEIGHT = 0.10        # increased slightly so up/down is a bit less twitchy/fast
+    ACTIVE_ZONE_HEIGHT = 0.06        # decreased so up/down requires less physical neck movement
 
     BASE_ALPHA = 0.2                 # lowered from 0.3 to make general movement slightly slower/smoother
     PRECISION_ALPHA = 0.05           # EMA smoothing for slow movement (precision mode)
