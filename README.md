@@ -4,18 +4,20 @@ A local desktop service built in Python that acts as a hands-free accessibility 
 
 ## Features
 
-- **Cursor Engine**: Moves your mouse cursor based on the position of your nose. Uses an Exponential Moving Average (EMA) for smoothness and an "Active Zone" scaling multiplier so that small head movements map to the full screen, reducing physical strain.
-- **Action Dispatcher**: Translates your facial expressions into actions:
+- **Cursor Engine**: Moves your mouse cursor based on the position of your nose. Uses an Exponential Moving Average (EMA) for smoothness and an asymmetrical "Active Zone" multiplier to minimize physical strain. It features a dynamic **Precision Mode** that automatically slows the cursor when you hold still, and a **Micro-Deadzone** to guarantee pixel-perfect clicking stability.
+- **Action Dispatcher**: Translates your facial expressions into discrete actions:
   - **Blink** (Close Both Eyes) -> Left Click
   - **Jaw Open** -> Scroll Down
   - **Smile** -> Enter
-- **System Navigator**: Translates extreme head poses into OS macros for practical navigation:
+- **System Navigator**: Translates extreme head poses into OS macros for seamless web browsing:
   - **Yaw Left** -> Browser Back (`Alt + Left`)
   - **Yaw Right** -> Browser Forward (`Alt + Right`)
   - **Pitch Up** -> Scroll Up
-  - **Pitch Down** -> Show Desktop (`Win + D`)
-- **UI Overlay**: A modern, draggable, borderless HUD at the bottom right corner showing the camera feed, a trailing path of your nose movement, live eye-tracking status, and a visual indicator when you blink.
-- **Multithreaded Architecture**: The heavy vision processing runs independently from the OS command execution and UI loops, ensuring lag-free operation.
+- **Drag-and-Drop Locking**: Hold your head still over an item for 5 seconds to trigger a `mouseDown` lock (with a visual progress bar). Move your head to drag the item, and make a sharp movement to break the lock and drop it.
+- **Continuous Voice Dictation**: Say **"transcribe me"** to enter dictation mode. The application will pause all head-tracking and macros so you can speak freely, continuously typing out your words using the Google Web Speech API. Say **"transcribe done"** to exit dictation and resume tracking.
+- **HUD UI Overlay**: A modern, draggable, borderless HUD in the corner of your screen. It features real-time eye-tracking crosshairs, lock-progress loading bars, a fading nose-movement tail, dictation status text, and a live FPS performance counter.
+- **Panic Hotkey**: Press `Alt + Q` at any time to instantly and safely force-quit the application.
+- **Centralized Configuration**: All thresholds, sensitivities, deadzones, and lock timers are cleanly exposed in `config.py` for real-time hackathon tuning.
 
 ## Installation
 
@@ -36,9 +38,10 @@ A local desktop service built in Python that acts as a hands-free accessibility 
 3. Look at the camera to move the cursor, blink to click, and use head poses to navigate.
 4. Press `Ctrl+C` in the terminal to gracefully shut down the application.
 
-## Suggestions for Future Improvements
+## Suggestions for Future Improvements (Hackathon Next-Steps)
 
-- **Configuration GUI**: Add a settings menu to let users easily bind different macros to specific facial blendshapes and head poses.
-- **Calibration Tool**: An interactive initial setup phase where the user moves their head in a comfortable range to dynamically calculate the boundaries of the "Active Zone".
-- **Voice Integration**: Combine this project with a local STT (Speech-to-Text) model (like Whisper) to handle complex typing tasks, leaving head-tracking strictly for navigation.
-- **Multi-Monitor Support**: Update the PyAutoGUI logic to automatically scale and jump between multiple monitors when reaching edge boundaries.
+- **Local LLM Integration**: Replace the Google Web Speech API with a local, privacy-first offline model like Whisper.cpp. You could then pipe the transcribed text through an LLM (like Llama 3 via Ollama) to execute complex semantic commands (e.g., "Summarize this page" or "Open Spotify and play Jazz").
+- **Gaze Tracking**: Currently, the cursor is bound to the *nose tip*. Integrating a dedicated gaze-tracking model (like `GazeTracking`) would allow the user to point with their eyes while keeping their head perfectly still, reserving head movements strictly for scrolling or window management.
+- **Dynamic Auto-Calibration**: Implement a brief 5-second startup calibration phase where the user moves their head in a circle. The system would dynamically calculate the `ACTIVE_ZONE_WIDTH` and `ACTIVE_ZONE_HEIGHT` bounds to perfectly match their physical mobility range.
+- **Multi-Monitor Matrix**: Update the PyAutoGUI math to seamlessly scale and jump the cursor across a multi-monitor setup without getting trapped on edges.
+- **Gesture Combos**: Implement state-machines to track *sequences* of blendshapes. For example, a "Wink Left + Wink Right + Smile" combo could trigger an OS-level sleep command or open a specific dashboard.
