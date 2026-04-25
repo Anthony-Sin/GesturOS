@@ -2,6 +2,7 @@ import speech_recognition as sr
 import threading
 import pyautogui
 from shared_state import state
+from tools.audio_engine.player import AudioPlayer
 
 class VoiceTranscriber:
     def __init__(self):
@@ -63,6 +64,7 @@ class VoiceTranscriber:
     def _dictate(self):
         # We are now in dictation mode.
         state["dictation_active"] = True
+        AudioPlayer().play('dictation_start')
         print("Dictation mode active. Tracking paused. Say 'transcribe done' to exit.")
         state["voice_status"] = "DICTATING (Say 'transcribe done' to stop)"
 
@@ -89,6 +91,7 @@ class VoiceTranscriber:
 
                         print("--> Exit phrase detected. Ending dictation...")
                         state["dictation_active"] = False
+                        AudioPlayer().play('dictation_stop')
                         exit_found = True
                         break
 

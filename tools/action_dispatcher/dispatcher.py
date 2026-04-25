@@ -4,6 +4,7 @@ import time
 import threading
 from config import Config
 from shared_state import state
+from tools.audio_engine.player import AudioPlayer
 
 class ActionDispatcher:
     def __init__(self, data_queue: queue.Queue):
@@ -59,6 +60,7 @@ class ActionDispatcher:
                         duration = now - self.blink_start_time
                         if duration >= self.blink_duration_threshold and (now - self.last_blink_time > self.cooldown_blink):
                             print("Action: Left Click triggered!")
+                            AudioPlayer().play('click')
                             pyautogui.click()
                             self.last_blink_time = now
                             self.blink_start_time = None # Reset after click

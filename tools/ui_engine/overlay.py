@@ -3,8 +3,10 @@ import queue
 import cv2
 from PIL import Image, ImageTk
 import collections
+import time
 from config import Config
 from shared_state import state
+from tools.audio_engine.player import AudioPlayer
 
 class UIOverlay:
     def __init__(self, data_queue: queue.Queue):
@@ -54,8 +56,9 @@ class UIOverlay:
 
         # FPS Tracking
         self.fps_queue = collections.deque(maxlen=30)
-        import time
         self.time_module = time
+
+        self.last_tick_time = 0
 
     def start_move(self, event):
         self.drag_x = event.x
@@ -202,6 +205,12 @@ class UIOverlay:
                 if is_locked:
                     cv2.putText(frame, "[ DRAGGING MODE ACTIVE ]", (50, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 100), 1)
                 elif lock_progress > 0.0:
+                    # Play subtle tick sounds as progress increases
+                    now = self.time_module.time()
+                    if lock_progress > 0.1 and now - self.last_tick_time > 0.4:
+                        AudioPlayer().play('lock_progress')
+                        self.last_tick_time = now
+
                     # Draw a loading bar for lock progress
                     bar_w = 100
                     bar_h = 10

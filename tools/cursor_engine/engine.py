@@ -4,6 +4,7 @@ import time
 import threading
 from config import Config
 from shared_state import state
+from tools.audio_engine.player import AudioPlayer
 
 class CursorEngine:
     def __init__(self, data_queue: queue.Queue):
@@ -75,10 +76,12 @@ class CursorEngine:
                 # Handle drag and drop via lock state
                 if is_locked and not self.was_locked:
                     # Just entered lock state, press mouse down for dragging
+                    AudioPlayer().play('lock_engage')
                     pyautogui.mouseDown()
                     self.was_locked = True
                 elif not is_locked and self.was_locked:
                     # Just exited lock state, release mouse
+                    AudioPlayer().play('lock_release')
                     pyautogui.mouseUp()
                     self.was_locked = False
 
