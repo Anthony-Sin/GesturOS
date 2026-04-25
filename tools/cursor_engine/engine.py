@@ -29,11 +29,14 @@ class CursorEngine:
 
         # Active Zone Multiplier Configuration
         # We assume the user's nose will mostly move within a central bounding box of the camera frame.
-        # Reduced from 0.2 to 0.12 to increase sensitivity: requires even less head movement to reach screen edges.
         self.active_zone_x_center = 0.5
         self.active_zone_y_center = 0.5
-        self.active_zone_width = 0.12
-        self.active_zone_height = 0.12
+
+        # User request: "make it more harder to move from right and left (a bit)" -> Increase width
+        self.active_zone_width = 0.18
+
+        # User request: "make it more sensitive for up and down" -> Decrease height
+        self.active_zone_height = 0.08
 
     def start(self):
         self.running = True

@@ -31,23 +31,18 @@ class UIOverlay:
         # Configure a sleek black background
         self.root.configure(bg='black')
 
-        # Create a header frame for dragging the borderless window
-        self.header = tk.Frame(self.root, bg='#222222', height=24)
-        self.header.pack(fill=tk.X)
-        self.header_label = tk.Label(self.header, text="Hands-Free Controller", fg='white', bg='#222222', font=("Helvetica", 10, "bold"))
-        self.header_label.pack(side=tk.LEFT, padx=10)
-
         # Variables for dragging
         self.drag_x = 0
         self.drag_y = 0
-        self.header.bind("<ButtonPress-1>", self.start_move)
-        self.header.bind("<B1-Motion>", self.do_move)
-        self.header_label.bind("<ButtonPress-1>", self.start_move)
-        self.header_label.bind("<B1-Motion>", self.do_move)
 
+        # Create canvas to hold the HUD frame
         self.canvas = tk.Canvas(self.root, width=self.window_width, height=self.window_height, bg='black', highlightthickness=0)
         self.canvas.pack()
         self.image_on_canvas = None
+
+        # Make the entire canvas draggable for a cleaner borderless HUD look
+        self.canvas.bind("<ButtonPress-1>", self.start_move)
+        self.canvas.bind("<B1-Motion>", self.do_move)
 
         # Keep track of recent nose positions to draw a path
         self.path_points = collections.deque(maxlen=30)
@@ -64,6 +59,26 @@ class UIOverlay:
         y = self.root.winfo_y() - self.drag_y + event.y
         self.root.geometry(f"+{x}+{y}")
 
+    def _draw_hud_corners(self, frame):
+        # Draw high-tech aesthetic corner brackets
+        color = (200, 200, 200)
+        thickness = 2
+        length = 20
+        h, w = frame.shape[:2]
+
+        # Top-left
+        cv2.line(frame, (10, 10), (10 + length, 10), color, thickness)
+        cv2.line(frame, (10, 10), (10, 10 + length), color, thickness)
+        # Top-right
+        cv2.line(frame, (w - 10, 10), (w - 10 - length, 10), color, thickness)
+        cv2.line(frame, (w - 10, 10), (w - 10, 10 + length), color, thickness)
+        # Bottom-left
+        cv2.line(frame, (10, h - 10), (10 + length, h - 10), color, thickness)
+        cv2.line(frame, (10, h - 10), (10, h - 10 - length), color, thickness)
+        # Bottom-right
+        cv2.line(frame, (w - 10, h - 10), (w - 10 - length, h - 10), color, thickness)
+        cv2.line(frame, (w - 10, h - 10), (w - 10, h - 10 - length), color, thickness)
+
     def update_frame(self):
         try:
             # Drain the queue to get the latest frame
@@ -75,6 +90,7 @@ class UIOverlay:
                 frame = payload['frame']
                 nose_tip = payload['nose_tip']
                 blendshapes = payload['blendshapes']
+                landmarks = payload.get('landmarks', [])
 
                 # Check for full blink for visual feedback
                 blink_left = blendshapes.get('eyeBlinkLeft', 0.0)
@@ -91,27 +107,41 @@ class UIOverlay:
 
                 self.path_points.append((draw_x, draw_y))
 
-                # Draw the path on the frame
+                # Draw the path on the frame (Sleeker trailing effect)
                 if len(self.path_points) > 1:
                     pts = list(self.path_points)
                     for i in range(1, len(pts)):
-                        cv2.line(frame, pts[i-1], pts[i], (0, 255, 0), 2)
+                        # Fade out the tail
+                        alpha = i / len(pts)
+                        color = (int(0 * alpha), int(255 * alpha), int(255 * alpha)) # Cyan tail
+                        cv2.line(frame, pts[i-1], pts[i], color, max(1, int(3*alpha)))
 
-                # Draw a dot at the current nose tip
-                color = (0, 0, 255) if self.is_blinking else (255, 0, 0)
-                cv2.circle(frame, (draw_x, draw_y), 5, color, -1)
+                # Draw a high-tech crosshair at the current nose tip instead of a dot
+                cross_color = (0, 0, 255) if self.is_blinking else (0, 255, 255)
+                cv2.line(frame, (draw_x - 10, draw_y), (draw_x + 10, draw_y), cross_color, 1)
+                cv2.line(frame, (draw_x, draw_y - 10), (draw_x, draw_y + 10), cross_color, 1)
+                cv2.circle(frame, (draw_x, draw_y), 4, cross_color, 1)
+
+                # Eye Tracking Status Text
+                left_status = "CLOSED" if blink_left > 0.65 else "OPEN"
+                right_status = "CLOSED" if blink_right > 0.65 else "OPEN"
 
                 # Make the frame slightly darker/sleeker
                 frame = cv2.convertScaleAbs(frame, alpha=0.8, beta=10)
+                self._draw_hud_corners(frame)
 
                 # Modern aesthetic text and elements
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(frame, f"L-EYE: {left_status}", (20, 30), font, 0.4, (0, 255, 0) if left_status=="OPEN" else (0, 0, 255), 1)
+                cv2.putText(frame, f"R-EYE: {right_status}", (20, 50), font, 0.4, (0, 255, 0) if right_status=="OPEN" else (0, 0, 255), 1)
+
                 if self.is_blinking:
-                    cv2.putText(frame, "CLICK", (20, 40), cv2.FONT_HERSHEY_DUPLEX, 1.2, (0, 200, 255), 2)
+                    cv2.putText(frame, "CLICK TRIGGER", (180, 40), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 255), 1)
 
                 # Draw Drag-Lock Status
                 is_locked = payload.get('is_locked', False)
                 if is_locked:
-                    cv2.putText(frame, "DRAGGING", (20, 80), cv2.FONT_HERSHEY_DUPLEX, 1.0, (0, 255, 100), 2)
+                    cv2.putText(frame, "[ DRAGGING MODE ACTIVE ]", (50, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 100), 1)
 
                 # Convert frame to PhotoImage
                 # Convert BGR to RGB for PIL
