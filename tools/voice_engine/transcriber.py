@@ -26,19 +26,25 @@ class VoiceTranscriber:
         self.running = False
 
     def _run_loop(self):
+        # A list of phonetic variations to handle accents and misinterpretations
+        wake_words = [
+            "transcribe me", "transcript me", "transcribe ne",
+            "subscribe me", "transcribe", "start dictation"
+        ]
+
         while self.running:
             try:
                 state["voice_status"] = "Listening for 'transcribe me'..."
                 with self.microphone as source:
-                    # Listen in short chunks
-                    audio = self.recognizer.listen(source, timeout=2, phrase_time_limit=5)
+                    # Listen in short chunks. Use slightly longer phrase limit to ensure we catch the full phrase.
+                    audio = self.recognizer.listen(source, timeout=3, phrase_time_limit=7)
 
                 # Use Google Web Speech API (free, doesn't require API key for light usage)
                 text = self.recognizer.recognize_google(audio).lower()
                 print(f"[Voice Heard]: {text}")
 
-                # Check for trigger phrase
-                if "transcribe me" in text:
+                # Check for trigger phrase using fuzzy matching / phonetic variations
+                if any(word in text for word in wake_words):
                     print("--> Trigger activated! Entering continuous dictation mode...")
                     self._dictate()
 
@@ -60,22 +66,33 @@ class VoiceTranscriber:
         print("Dictation mode active. Tracking paused. Say 'transcribe done' to exit.")
         state["voice_status"] = "DICTATING (Say 'transcribe done' to stop)"
 
+        exit_words = ["transcribe done", "transcript done", "stop dictation", "stop transcribing"]
+
         while self.running and state["dictation_active"]:
             try:
                 with self.microphone as source:
-                    audio = self.recognizer.listen(source, timeout=2, phrase_time_limit=10)
+                    # Use a short timeout so it doesn't block forever if silent,
+                    # but a long phrase limit to capture full flowing sentences.
+                    audio = self.recognizer.listen(source, timeout=3, phrase_time_limit=15)
 
                 text = self.recognizer.recognize_google(audio).lower()
                 print(f"Dictated Chunk: {text}")
 
-                if "transcribe done" in text:
-                    # Write everything before the exit phrase
-                    final_text = text.replace("transcribe done", "").strip()
-                    if final_text:
-                        pyautogui.write(final_text + " ", interval=0.01)
+                # Check if any exit word is in the text
+                exit_found = False
+                for e_word in exit_words:
+                    if e_word in text:
+                        # Write everything before the exit phrase
+                        final_text = text.replace(e_word, "").strip()
+                        if final_text:
+                            pyautogui.write(final_text + " ", interval=0.01)
 
-                    print("--> Exit phrase detected. Ending dictation...")
-                    state["dictation_active"] = False
+                        print("--> Exit phrase detected. Ending dictation...")
+                        state["dictation_active"] = False
+                        exit_found = True
+                        break
+
+                if exit_found:
                     break
                 else:
                     # Write the chunk immediately

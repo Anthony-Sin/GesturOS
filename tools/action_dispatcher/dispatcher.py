@@ -15,6 +15,9 @@ class ActionDispatcher:
         self.last_jaw_time = 0
         self.last_smile_time = 0
 
+        self.blink_start_time = None
+        self.blink_duration_threshold = Config.BLINK_DURATION_THRESHOLD
+
         self.cooldown_blink = Config.BLINK_COOLDOWN
         self.cooldown_jaw = Config.JAW_COOLDOWN
         self.cooldown_smile = Config.SMILE_COOLDOWN
@@ -46,13 +49,22 @@ class ActionDispatcher:
                 blink_left = blendshapes.get('eyeBlinkLeft', 0.0)
                 blink_right = blendshapes.get('eyeBlinkRight', 0.0)
 
-                # If both eyes are closed, trigger a left click
+                # If both eyes are closed, track duration to prevent false positives from natural blinks
                 is_blink = (blink_left > Config.BLINK_THRESHOLD and blink_right > Config.BLINK_THRESHOLD)
 
-                if is_blink and (now - self.last_blink_time > self.cooldown_blink):
-                    print("Action: Left Click triggered!")
-                    pyautogui.click()
-                    self.last_blink_time = now
+                if is_blink:
+                    if self.blink_start_time is None:
+                        self.blink_start_time = now
+                    else:
+                        duration = now - self.blink_start_time
+                        if duration >= self.blink_duration_threshold and (now - self.last_blink_time > self.cooldown_blink):
+                            print("Action: Left Click triggered!")
+                            pyautogui.click()
+                            self.last_blink_time = now
+                            self.blink_start_time = None # Reset after click
+                else:
+                    # Eyes are open, reset the blink duration tracker
+                    self.blink_start_time = None
 
                 # Check Jaw Open -> Scroll Down
                 jaw_open = blendshapes.get('jawOpen', 0.0)

@@ -20,7 +20,8 @@ class Config:
 
     # --- Action Dispatcher (Blendshapes) ---
     BLINK_THRESHOLD = 0.45           # Score required for eyes to be considered "closed"
-    BLINK_COOLDOWN = 0.5
+    BLINK_DURATION_THRESHOLD = 0.4   # seconds eyes must remain closed to trigger click
+    BLINK_COOLDOWN = 0.8             # cooldown after a successful click
     SMILE_THRESHOLD = 0.60           # Score required to trigger 'Enter'
     SMILE_COOLDOWN = 1.0
     JAW_THRESHOLD = 0.60             # Score required to trigger Scroll
