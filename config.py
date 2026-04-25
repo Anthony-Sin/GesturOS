@@ -11,9 +11,9 @@ class Config:
     ACTIVE_ZONE_X_CENTER = 0.5
     ACTIVE_ZONE_Y_CENTER = 0.5
     ACTIVE_ZONE_WIDTH = 0.18         # slightly wider to require more left/right movement
-    ACTIVE_ZONE_HEIGHT = 0.08        # shorter to make up/down extremely sensitive
+    ACTIVE_ZONE_HEIGHT = 0.10        # increased slightly so up/down is a bit less twitchy/fast
 
-    BASE_ALPHA = 0.3                 # EMA smoothing for fast movement
+    BASE_ALPHA = 0.2                 # lowered from 0.3 to make general movement slightly slower/smoother
     PRECISION_ALPHA = 0.05           # EMA smoothing for slow movement (precision mode)
     VELOCITY_THRESHOLD = 0.005       # threshold to enter precision mode
     DEADZONE_VELOCITY = 0.003        # increased deadzone: completely ignore microscopic jitter

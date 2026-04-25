@@ -3,6 +3,7 @@ import queue
 import time
 import threading
 from config import Config
+from shared_state import state
 
 class CursorEngine:
     def __init__(self, data_queue: queue.Queue):
@@ -64,6 +65,10 @@ class CursorEngine:
             try:
                 # Use a small timeout so we can periodically check self.running
                 payload = self.data_queue.get(timeout=0.1)
+
+                # Pause cursor tracking if dictation is active
+                if state.get("dictation_active", False):
+                    continue
 
                 is_locked = payload.get('is_locked', False)
 

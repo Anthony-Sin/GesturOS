@@ -3,6 +3,7 @@ import queue
 import time
 import threading
 from config import Config
+from shared_state import state
 
 class ActionDispatcher:
     def __init__(self, data_queue: queue.Queue):
@@ -33,7 +34,8 @@ class ActionDispatcher:
             try:
                 payload = self.data_queue.get(timeout=0.1)
 
-                if payload.get('is_locked', False):
+                # Pause action triggers if dictation is active
+                if state.get("dictation_active", False) or payload.get('is_locked', False):
                     continue
 
                 blendshapes = payload['blendshapes']

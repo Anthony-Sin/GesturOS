@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import math
 from config import Config
+from shared_state import state
 
 class SystemNavigator:
     def __init__(self, data_queue: queue.Queue):
@@ -100,7 +101,8 @@ class SystemNavigator:
             try:
                 payload = self.data_queue.get(timeout=0.1)
 
-                if payload.get('is_locked', False):
+                # Pause system navigation if dictation is active
+                if state.get("dictation_active", False) or payload.get('is_locked', False):
                     continue
 
                 landmarks = payload['landmarks']
