@@ -7,6 +7,7 @@ import os
 
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+from config import Config
 
 MODEL_PATH = 'face_landmarker.task'
 MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
@@ -18,7 +19,7 @@ def download_model_if_missing():
         print("Download complete.")
 
 class VisionPipeline:
-    def __init__(self, data_queue: queue.Queue, target_fps: int = 30):
+    def __init__(self, data_queue: queue.Queue, target_fps: int = Config.TARGET_FPS):
         self.data_queue = data_queue
         self.target_fps = target_fps
         self.frame_duration = 1.0 / target_fps
@@ -40,9 +41,9 @@ class VisionPipeline:
         self.is_locked = False
         self.anchor_point = None
         self.anchor_start_time = 0
-        self.lock_duration_threshold = 10.0  # seconds for dragging lock
-        self.movement_threshold = 0.015      # tight threshold for holding still
-        self.breakout_threshold = 0.08       # Larger movement required to break out of lock (drop item)
+        self.lock_duration_threshold = Config.LOCK_DURATION_THRESHOLD
+        self.movement_threshold = Config.LOCK_MOVEMENT_THRESHOLD
+        self.breakout_threshold = Config.LOCK_BREAKOUT_THRESHOLD
 
     def start(self):
         self.running = True
@@ -85,6 +86,7 @@ class VisionPipeline:
                 # --- Locking Mechanism Logic ---
                 current_time = time.time()
 
+                lock_progress = 0.0
                 if self.anchor_point is None:
                     self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
                     self.anchor_start_time = current_time
@@ -101,17 +103,24 @@ class VisionPipeline:
                             self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
                             self.anchor_start_time = current_time
                         else:
+                            # Calculate progress
+                            elapsed = current_time - self.anchor_start_time
+                            lock_progress = min(1.0, elapsed / self.lock_duration_threshold)
+
                             # Check if duration has passed
-                            if (current_time - self.anchor_start_time) >= self.lock_duration_threshold:
+                            if elapsed >= self.lock_duration_threshold:
                                 self.is_locked = True
                                 print("Pipeline: Interface LOCKED.")
+                                lock_progress = 1.0
                     else:
+                        lock_progress = 1.0
                         # We are locked. Check if we should unlock (breakout)
                         if distance > self.breakout_threshold:
                             self.is_locked = False
                             print("Pipeline: Interface UNLOCKED.")
                             self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
                             self.anchor_start_time = current_time
+                            lock_progress = 0.0
 
                 payload = {
                     'timestamp': timestamp_ms,
@@ -119,7 +128,8 @@ class VisionPipeline:
                     'blendshapes': blendshape_dict,
                     'landmarks': landmarks, # Passing all landmarks for the navigator to use
                     'frame': cv2.flip(frame, 1), # Add a flipped copy of the frame for the UI
-                    'is_locked': self.is_locked
+                    'is_locked': self.is_locked,
+                    'lock_progress': lock_progress
                 }
 
                 # Non-blocking put

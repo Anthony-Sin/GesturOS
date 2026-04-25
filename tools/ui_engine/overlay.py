@@ -3,6 +3,8 @@ import queue
 import cv2
 from PIL import Image, ImageTk
 import collections
+from config import Config
+from shared_state import state
 
 class UIOverlay:
     def __init__(self, data_queue: queue.Queue):
@@ -12,8 +14,8 @@ class UIOverlay:
         self.root.title("Hands-Free Controller")
 
         # Make the window small and place it at the bottom right
-        self.window_width = 320
-        self.window_height = 240
+        self.window_width = Config.UI_WIDTH
+        self.window_height = Config.UI_HEIGHT
 
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -50,6 +52,11 @@ class UIOverlay:
         # Store blink status for visual feedback
         self.is_blinking = False
 
+        # FPS Tracking
+        self.fps_queue = collections.deque(maxlen=30)
+        import time
+        self.time_module = time
+
     def start_move(self, event):
         self.drag_x = event.x
         self.drag_y = event.y
@@ -81,6 +88,9 @@ class UIOverlay:
 
     def update_frame(self):
         try:
+            current_time = self.time_module.time()
+            self.fps_queue.append(current_time)
+
             # Drain the queue to get the latest frame
             payload = None
             while not self.data_queue.empty():
@@ -172,10 +182,40 @@ class UIOverlay:
                 if self.is_blinking:
                     cv2.putText(frame, "RIGHT CLICK", (180, 40), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 255), 1)
 
-                # Draw Drag-Lock Status
+                # FPS Calculation and Render
+                if len(self.fps_queue) > 1:
+                    time_diff = self.fps_queue[-1] - self.fps_queue[0]
+                    if time_diff > 0:
+                        fps = len(self.fps_queue) / time_diff
+                        cv2.putText(frame, f"FPS: {fps:.1f}", (self.window_width - 80, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+
+                # Voice Transcriber Status
+                voice_status = state.get("voice_status", "")
+                if voice_status:
+                    color = (0, 255, 255) if "DICTATING" in voice_status else (200, 200, 200)
+                    cv2.putText(frame, voice_status, (20, self.window_height - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, color, 1)
+
+                # Draw Drag-Lock Status & Progress
                 is_locked = payload.get('is_locked', False)
+                lock_progress = payload.get('lock_progress', 0.0)
+
                 if is_locked:
                     cv2.putText(frame, "[ DRAGGING MODE ACTIVE ]", (50, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 100), 1)
+                elif lock_progress > 0.0:
+                    # Draw a loading bar for lock progress
+                    bar_w = 100
+                    bar_h = 10
+                    start_x = self.window_width // 2 - bar_w // 2
+                    start_y = self.window_height - 30
+
+                    # Background
+                    cv2.rectangle(frame, (start_x, start_y), (start_x + bar_w, start_y + bar_h), (50, 50, 50), -1)
+                    # Foreground
+                    cv2.rectangle(frame, (start_x, start_y), (start_x + int(bar_w * lock_progress), start_y + bar_h), (0, 255, 255), -1)
+                    # Border
+                    cv2.rectangle(frame, (start_x, start_y), (start_x + bar_w, start_y + bar_h), (200, 200, 200), 1)
+
+                    cv2.putText(frame, "HOLD STILL TO DRAG", (start_x - 10, start_y - 5), font, 0.35, (200, 200, 200), 1)
 
                 # Convert frame to PhotoImage
                 # Convert BGR to RGB for PIL

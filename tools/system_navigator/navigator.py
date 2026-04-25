@@ -5,6 +5,7 @@ import threading
 import cv2
 import numpy as np
 import math
+from config import Config
 
 class SystemNavigator:
     def __init__(self, data_queue: queue.Queue):
@@ -13,12 +14,11 @@ class SystemNavigator:
 
         # Cooldowns to prevent spamming macros
         self.last_action_time = 0
-        self.cooldown = 1.5 # seconds
+        self.cooldown = Config.NAVIGATOR_COOLDOWN
 
         # Thresholds for extreme head poses (in degrees)
-        self.yaw_threshold = 30.0   # Looking significantly left/right
-        self.pitch_threshold = 20.0 # Looking significantly up/down
-        self.roll_threshold = 30.0  # Tilting head
+        self.yaw_threshold = Config.YAW_THRESHOLD
+        self.pitch_threshold = Config.PITCH_THRESHOLD
 
         # 3D model points (standard face model to match MediaPipe landmarks)
         # Using a minimal set of points: Nose tip, Chin, Left Eye, Right Eye, Left Mouth, Right Mouth

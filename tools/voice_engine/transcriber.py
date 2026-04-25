@@ -1,6 +1,7 @@
 import speech_recognition as sr
 import threading
 import pyautogui
+from shared_state import state
 
 class VoiceTranscriber:
     def __init__(self):
@@ -27,6 +28,7 @@ class VoiceTranscriber:
     def _run_loop(self):
         while self.running:
             try:
+                state["voice_status"] = "Listening for 'transcript now'..."
                 with self.microphone as source:
                     # Listen in short chunks
                     audio = self.recognizer.listen(source, timeout=2, phrase_time_limit=5)
@@ -55,13 +57,16 @@ class VoiceTranscriber:
     def _dictate(self):
         # We are now in dictation mode. Listen for one long phrase and type it out.
         print("Dictation mode active. Please speak...")
+        state["voice_status"] = "DICTATING... (Speak Now)"
         try:
             with self.microphone as source:
                 audio = self.recognizer.listen(source, timeout=5, phrase_time_limit=15)
 
+            state["voice_status"] = "Processing Audio..."
             text = self.recognizer.recognize_google(audio)
             print(f"Dictated: {text}")
 
+            state["voice_status"] = "Typing Text..."
             # Type it out via PyAutoGUI where the cursor currently is
             pyautogui.write(text, interval=0.01)
 
@@ -73,3 +78,5 @@ class VoiceTranscriber:
             print("Could not understand dictation.")
         except sr.RequestError as e:
             print(f"Service error during dictation: {e}")
+        finally:
+            state["voice_status"] = "Listening for 'transcript now'..."

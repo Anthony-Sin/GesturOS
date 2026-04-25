@@ -2,6 +2,7 @@ import pyautogui
 import queue
 import time
 import threading
+from config import Config
 
 class ActionDispatcher:
     def __init__(self, data_queue: queue.Queue):
@@ -13,9 +14,9 @@ class ActionDispatcher:
         self.last_jaw_time = 0
         self.last_smile_time = 0
 
-        self.cooldown_blink = 0.5   # seconds
-        self.cooldown_jaw = 0.1     # faster scrolling cooldown
-        self.cooldown_smile = 1.0   # seconds
+        self.cooldown_blink = Config.BLINK_COOLDOWN
+        self.cooldown_jaw = Config.JAW_COOLDOWN
+        self.cooldown_smile = Config.SMILE_COOLDOWN
 
     def start(self):
         self.running = True
@@ -40,12 +41,11 @@ class ActionDispatcher:
                 now = time.time()
 
                 # Check Blink (Closing Eyes) -> Right Click
-                # Lowered threshold to 0.45 to make it easier to trigger.
                 blink_left = blendshapes.get('eyeBlinkLeft', 0.0)
                 blink_right = blendshapes.get('eyeBlinkRight', 0.0)
 
                 # If both eyes are closed, trigger a right click
-                is_blink = (blink_left > 0.45 and blink_right > 0.45)
+                is_blink = (blink_left > Config.BLINK_THRESHOLD and blink_right > Config.BLINK_THRESHOLD)
 
                 if is_blink and (now - self.last_blink_time > self.cooldown_blink):
                     print("Action: Right Click triggered!")
@@ -53,9 +53,8 @@ class ActionDispatcher:
                     self.last_blink_time = now
 
                 # Check Jaw Open -> Scroll Down
-                # jawOpen > 0.60
                 jaw_open = blendshapes.get('jawOpen', 0.0)
-                if jaw_open > 0.60 and (now - self.last_jaw_time > self.cooldown_jaw):
+                if jaw_open > Config.JAW_THRESHOLD and (now - self.last_jaw_time > self.cooldown_jaw):
                     print("Action: Scroll Down triggered!")
                     pyautogui.scroll(-50) # Scroll down (negative value usually)
                     self.last_jaw_time = now
@@ -66,7 +65,7 @@ class ActionDispatcher:
                 smile_right = blendshapes.get('mouthSmileRight', 0.0)
                 smile_avg = (smile_left + smile_right) / 2.0
 
-                if smile_avg > 0.60 and (now - self.last_smile_time > self.cooldown_smile):
+                if smile_avg > Config.SMILE_THRESHOLD and (now - self.last_smile_time > self.cooldown_smile):
                     print("Action: Smile triggered! (Enter)")
                     pyautogui.press('enter')
                     self.last_smile_time = now

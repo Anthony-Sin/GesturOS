@@ -2,6 +2,7 @@ import pyautogui
 import queue
 import time
 import threading
+from config import Config
 
 class CursorEngine:
     def __init__(self, data_queue: queue.Queue):
@@ -18,25 +19,20 @@ class CursorEngine:
         self.ema_y = None
 
         # Dynamic Sensitivity Configuration
-        self.base_alpha = 0.3      # Fast movement responsiveness
-        self.precision_alpha = 0.05 # Slow movement precision
+        self.base_alpha = Config.BASE_ALPHA
+        self.precision_alpha = Config.PRECISION_ALPHA
         self.alpha = self.base_alpha
 
         # Velocity tracking for dynamic sensitivity
         self.last_raw_x = None
         self.last_raw_y = None
-        self.velocity_threshold = 0.005 # Normalized distance per frame
+        self.velocity_threshold = Config.VELOCITY_THRESHOLD
 
         # Active Zone Multiplier Configuration
-        # We assume the user's nose will mostly move within a central bounding box of the camera frame.
-        self.active_zone_x_center = 0.5
-        self.active_zone_y_center = 0.5
-
-        # User request: "make it more harder to move from right and left (a bit)" -> Increase width
-        self.active_zone_width = 0.18
-
-        # User request: "make it more sensitive for up and down" -> Decrease height
-        self.active_zone_height = 0.08
+        self.active_zone_x_center = Config.ACTIVE_ZONE_X_CENTER
+        self.active_zone_y_center = Config.ACTIVE_ZONE_Y_CENTER
+        self.active_zone_width = Config.ACTIVE_ZONE_WIDTH
+        self.active_zone_height = Config.ACTIVE_ZONE_HEIGHT
 
     def start(self):
         self.running = True
@@ -89,17 +85,24 @@ class CursorEngine:
                 raw_y = nose_tip['y']
 
                 # Dynamic Sensitivity: Slow down when head is moving very little
+                skip_movement = False
                 if self.last_raw_x is not None and self.last_raw_y is not None:
                     dx = raw_x - self.last_raw_x
                     dy = raw_y - self.last_raw_y
                     velocity = (dx**2 + dy**2)**0.5
 
-                    if velocity < self.velocity_threshold:
+                    # Micro-deadzone: If movement is practically zero, ignore it completely to prevent jitter when trying to hold perfectly still.
+                    if velocity < (self.velocity_threshold / 5.0):
+                        skip_movement = True
+                    elif velocity < self.velocity_threshold:
                         # Enter precision mode (high smoothing, slow movement)
                         self.alpha = self.precision_alpha
                     else:
                         # Exit precision mode (fast movement)
                         self.alpha = self.base_alpha
+
+                if skip_movement:
+                    continue
 
                 self.last_raw_x = raw_x
                 self.last_raw_y = raw_y
