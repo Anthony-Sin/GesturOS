@@ -3,6 +3,7 @@ import time
 import signal
 import sys
 import threading
+import argparse
 from pynput import keyboard
 
 from tools.vision_pipeline.pipeline import VisionPipeline
@@ -12,8 +13,9 @@ from tools.system_navigator.navigator import SystemNavigator
 from tools.ui_engine.overlay import UIOverlay
 from tools.voice_engine.transcriber import VoiceTranscriber
 from tools.cursor_engine.magnetism import TargetMagnetism
+from tools.agent_engine.gemini_agent import GeminiDesktopAgent
 
-def main():
+def launch_standard_mode():
     # We use multiple queues to broadcast the data stream to all worker threads
     # This decouples the vision processing loop from OS-execution commands.
     cursor_queue = queue.Queue(maxsize=5)
@@ -127,5 +129,62 @@ def main():
 
     print("Application exited.")
 
+def launch_blind_mode():
+    print("Starting Blind Accessibility Mode...")
+    agent = GeminiDesktopAgent()
+
+    running = True
+
+    def shutdown():
+        nonlocal running
+        print('Shutting down gracefully...')
+        running = False
+        agent.stop()
+
+    def signal_handler(sig, frame):
+        shutdown()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
+    def on_activate_exit():
+        print("Global hotkey Alt+Q pressed. Exiting...")
+        shutdown()
+        import os
+        os._exit(0)
+
+    hotkey_listener = keyboard.GlobalHotKeys({
+        '<alt>+q': on_activate_exit
+    })
+    hotkey_listener.start()
+
+    agent.start()
+
+    # Block main thread so app stays alive
+    try:
+        while running:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        shutdown()
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--mode', type=str, choices=['standard', 'blind'], default='standard')
+    args = parser.parse_args()
+
+    if args.mode == 'standard':
+        launch_standard_mode()
+    elif args.mode == 'blind':
+        launch_blind_mode()
+
 if __name__ == '__main__':
-    main()
+    # If run without arguments, try launching the GUI launcher first
+    if len(sys.argv) == 1:
+        import subprocess
+        try:
+            subprocess.run([sys.executable, "launcher.py"])
+        except Exception as e:
+            print("Could not start launcher:", e)
+            launch_standard_mode()
+    else:
+        main()
