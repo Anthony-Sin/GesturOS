@@ -178,13 +178,17 @@ def main():
         launch_blind_mode()
 
 if __name__ == '__main__':
-    # If run without arguments, try launching the GUI launcher first
+    # If run without arguments, use the native UI launcher
     if len(sys.argv) == 1:
-        import subprocess
-        try:
-            subprocess.run([sys.executable, "launcher.py"])
-        except Exception as e:
-            print("Could not start launcher:", e)
+        import launcher
+        selected_mode = launcher.show_launcher()
+
+        if selected_mode == 'standard':
             launch_standard_mode()
+        elif selected_mode == 'blind':
+            launch_blind_mode()
+        else:
+            print("No mode selected. Exiting.")
+            sys.exit(0)
     else:
         main()
