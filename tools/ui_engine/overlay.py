@@ -31,6 +31,7 @@ class UIOverlay:
 
         self.canvas = tk.Canvas(self.root, width=self.window_width, height=self.window_height)
         self.canvas.pack()
+        self.image_on_canvas = None
 
         # Keep track of recent nose positions to draw a path
         self.path_points = collections.deque(maxlen=30)
@@ -78,13 +79,22 @@ class UIOverlay:
                 if self.is_blinking:
                     cv2.putText(frame, "CLICK!", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
+                # Draw Locked Status
+                is_locked = payload.get('is_locked', False)
+                if is_locked:
+                    cv2.putText(frame, "LOCKED", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+
                 # Convert frame to PhotoImage
                 # Convert BGR to RGB for PIL
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 img = Image.fromarray(frame_rgb)
                 imgtk = ImageTk.PhotoImage(image=img)
 
-                self.canvas.create_image(0, 0, anchor=tk.NW, image=imgtk)
+                if self.image_on_canvas is None:
+                    self.image_on_canvas = self.canvas.create_image(0, 0, anchor=tk.NW, image=imgtk)
+                else:
+                    self.canvas.itemconfig(self.image_on_canvas, image=imgtk)
+
                 # Keep a reference to prevent garbage collection
                 self.canvas.image = imgtk
 

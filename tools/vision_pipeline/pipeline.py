@@ -36,6 +36,14 @@ class VisionPipeline:
         )
         self.detector = vision.FaceLandmarker.create_from_options(options)
 
+        # Locking mechanism variables
+        self.is_locked = False
+        self.anchor_point = None
+        self.anchor_start_time = 0
+        self.lock_duration_threshold = 10.0  # seconds
+        self.movement_threshold = 0.02       # 2% of the normalized screen space
+        self.breakout_threshold = 0.08       # Larger movement required to break out of lock
+
     def start(self):
         self.running = True
         cap = cv2.VideoCapture(0)
@@ -74,12 +82,44 @@ class VisionPipeline:
                 # Extract relevant blendshapes into a fast dict
                 blendshape_dict = {cat.category_name: cat.score for cat in blendshapes}
 
+                # --- Locking Mechanism Logic ---
+                current_time = time.time()
+
+                if self.anchor_point is None:
+                    self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
+                    self.anchor_start_time = current_time
+                else:
+                    # Calculate distance from anchor
+                    dx = nose_tip.x - self.anchor_point['x']
+                    dy = nose_tip.y - self.anchor_point['y']
+                    distance = (dx**2 + dy**2)**0.5
+
+                    if not self.is_locked:
+                        # Check if we should lock
+                        if distance > self.movement_threshold:
+                            # Reset anchor if moved
+                            self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
+                            self.anchor_start_time = current_time
+                        else:
+                            # Check if duration has passed
+                            if (current_time - self.anchor_start_time) >= self.lock_duration_threshold:
+                                self.is_locked = True
+                                print("Pipeline: Interface LOCKED.")
+                    else:
+                        # We are locked. Check if we should unlock (breakout)
+                        if distance > self.breakout_threshold:
+                            self.is_locked = False
+                            print("Pipeline: Interface UNLOCKED.")
+                            self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
+                            self.anchor_start_time = current_time
+
                 payload = {
                     'timestamp': timestamp_ms,
                     'nose_tip': {'x': nose_tip.x, 'y': nose_tip.y, 'z': nose_tip.z},
                     'blendshapes': blendshape_dict,
                     'landmarks': landmarks, # Passing all landmarks for the navigator to use
-                    'frame': cv2.flip(frame, 1) # Add a flipped copy of the frame for the UI
+                    'frame': cv2.flip(frame, 1), # Add a flipped copy of the frame for the UI
+                    'is_locked': self.is_locked
                 }
 
                 # Non-blocking put

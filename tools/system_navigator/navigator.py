@@ -99,6 +99,10 @@ class SystemNavigator:
         while self.running:
             try:
                 payload = self.data_queue.get(timeout=0.1)
+
+                if payload.get('is_locked', False):
+                    continue
+
                 landmarks = payload['landmarks']
 
                 pose = self._get_head_pose(landmarks)

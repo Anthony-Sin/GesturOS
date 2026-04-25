@@ -3,6 +3,7 @@ import time
 import signal
 import sys
 import threading
+from pynput import keyboard
 
 from tools.vision_pipeline.pipeline import VisionPipeline
 from tools.cursor_engine.engine import CursorEngine
@@ -45,6 +46,20 @@ def main():
         sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
+
+    def on_activate_exit():
+        print("Global hotkey Alt+Q pressed. Exiting...")
+        shutdown()
+        # Tkinter mainloop is blocking the main thread, so we must exit aggressively or use root.quit()
+        # But we don't have direct access to root here easily, so we use sys.exit or let shutdown do its job
+        # os._exit is safe for forcefully killing multithreaded apps when Tkinter is involved.
+        import os
+        os._exit(0)
+
+    hotkey_listener = keyboard.GlobalHotKeys({
+        '<alt>+q': on_activate_exit
+    })
+    hotkey_listener.start()
 
     def broadcaster():
         while running:

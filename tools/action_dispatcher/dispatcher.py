@@ -31,6 +31,10 @@ class ActionDispatcher:
         while self.running:
             try:
                 payload = self.data_queue.get(timeout=0.1)
+
+                if payload.get('is_locked', False):
+                    continue
+
                 blendshapes = payload['blendshapes']
 
                 now = time.time()

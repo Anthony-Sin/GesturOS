@@ -53,6 +53,10 @@ class CursorEngine:
             try:
                 # Use a small timeout so we can periodically check self.running
                 payload = self.data_queue.get(timeout=0.1)
+
+                if payload.get('is_locked', False):
+                    continue
+
                 nose_tip = payload['nose_tip']
 
                 raw_x = nose_tip['x']
