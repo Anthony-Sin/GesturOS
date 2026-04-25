@@ -3,6 +3,9 @@
 class Config:
     # --- Vision Pipeline ---
     TARGET_FPS = 30
+    LOCK_DURATION_THRESHOLD = 5.0    # seconds required holding still to lock/drag
+    LOCK_MOVEMENT_THRESHOLD = 0.025  # easier to hold still without resetting timer
+    LOCK_BREAKOUT_THRESHOLD = 0.12   # requires significant movement to break out/drop item
 
     # --- Cursor Engine ---
     ACTIVE_ZONE_X_CENTER = 0.5

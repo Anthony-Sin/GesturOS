@@ -15,6 +15,7 @@ def show_launcher():
         selected_mode = mode
         root.quit()
 
+    # Create root but we will only withdraw it or destroy it safely later.
     root = tk.Tk()
     root.title("AccessiBot Launcher")
 
@@ -93,14 +94,23 @@ def show_launcher():
     root.mainloop()
 
     # Cleanup window resources after mainloop breaks
+    # Do NOT destroy root if we intend to open another Tk window later in the same process.
+    # Instead, withdraw it so the Tcl interpreter stays alive.
     try:
-        root.destroy()
+        root.withdraw()
     except:
         pass
 
     return selected_mode
 
 if __name__ == '__main__':
-    # Testing standalone
+    # If the user runs launcher.py directly, we need to bootstrap the main application
     mode = show_launcher()
     print(f"Selected Mode: {mode}")
+
+    if mode:
+        import main
+        if mode == 'standard':
+            main.launch_standard_mode()
+        elif mode == 'blind':
+            main.launch_blind_mode()

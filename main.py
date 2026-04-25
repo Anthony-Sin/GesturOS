@@ -131,6 +131,24 @@ def launch_standard_mode():
 
 def launch_blind_mode():
     print("Starting Blind Accessibility Mode...")
+
+    # The user specifically requested: "do not remove the ey things just add this"
+    # We must run the Standard Mode tracking + the Gemini Agent concurrently.
+
+    cursor_queue = queue.Queue(maxsize=5)
+    action_queue = queue.Queue(maxsize=5)
+    navigator_queue = queue.Queue(maxsize=5)
+    ui_queue = queue.Queue(maxsize=5)
+    master_queue = queue.Queue(maxsize=5)
+
+    pipeline = VisionPipeline(master_queue, target_fps=30)
+    cursor_engine = CursorEngine(cursor_queue)
+    action_dispatcher = ActionDispatcher(action_queue)
+    system_navigator = SystemNavigator(navigator_queue)
+    ui_overlay = UIOverlay(ui_queue)
+    target_magnetism = TargetMagnetism(cursor_engine)
+
+    # Start the Gemini Agent alongside everything else
     agent = GeminiDesktopAgent()
 
     running = True
@@ -139,7 +157,13 @@ def launch_blind_mode():
         nonlocal running
         print('Shutting down gracefully...')
         running = False
+        pipeline.stop()
+        cursor_engine.stop()
+        action_dispatcher.stop()
+        system_navigator.stop()
+        target_magnetism.stop()
         agent.stop()
+        ui_overlay.stop()
 
     def signal_handler(sig, frame):
         shutdown()
@@ -158,13 +182,42 @@ def launch_blind_mode():
     })
     hotkey_listener.start()
 
+    def broadcaster():
+        while running:
+            try:
+                payload = master_queue.get(timeout=0.1)
+                try: cursor_queue.put_nowait(payload)
+                except queue.Full: pass
+                try: action_queue.put_nowait(payload)
+                except queue.Full: pass
+                try: navigator_queue.put_nowait(payload)
+                except queue.Full: pass
+                try: ui_queue.put_nowait(payload)
+                except queue.Full: pass
+            except queue.Empty:
+                pass
+            except Exception as e:
+                if running:
+                    print(f"Broadcaster error: {e}")
+
+    broadcast_thread = threading.Thread(target=broadcaster, daemon=True)
+    broadcast_thread.start()
+
+    pipeline_thread = threading.Thread(target=pipeline.start, daemon=True)
+    pipeline_thread.start()
+
+    cursor_engine.start()
+    action_dispatcher.start()
+    system_navigator.start()
+    target_magnetism.start()
     agent.start()
 
-    # Block main thread so app stays alive
+    # Start UI (blocking call in main thread)
     try:
-        while running:
-            time.sleep(1)
-    except KeyboardInterrupt:
+        ui_overlay.start()
+    except Exception as e:
+        print(f"UI encountered an error: {e}")
+    finally:
         shutdown()
 
 def main():

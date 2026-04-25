@@ -39,7 +39,7 @@ class ActionDispatcher:
                 payload = self.data_queue.get(timeout=0.1)
 
                 # Pause action triggers if dictation is active
-                if state.get("dictation_active", False):
+                if state.get("dictation_active", False) or payload.get('is_locked', False):
                     continue
 
                 blendshapes = payload['blendshapes']

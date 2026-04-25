@@ -59,6 +59,8 @@ class CursorEngine:
         return normalized
 
     def _run(self):
+        self.was_locked = False
+
         while self.running:
             try:
                 # Use a small timeout so we can periodically check self.running
@@ -67,6 +69,20 @@ class CursorEngine:
                 # Pause cursor tracking if dictation is active
                 if state.get("dictation_active", False):
                     continue
+
+                is_locked = payload.get('is_locked', False)
+
+                # Handle drag and drop via lock state
+                if is_locked and not self.was_locked:
+                    # Just entered lock state, press mouse down for dragging
+                    AudioPlayer().play('lock_engage')
+                    pyautogui.mouseDown()
+                    self.was_locked = True
+                elif not is_locked and self.was_locked:
+                    # Just exited lock state, release mouse
+                    AudioPlayer().play('lock_release')
+                    pyautogui.mouseUp()
+                    self.was_locked = False
 
                 nose_tip = payload['nose_tip']
                 timestamp = payload['timestamp'] / 1000.0 # seconds for the filter
@@ -84,6 +100,16 @@ class CursorEngine:
                     # Micro-deadzone: completely ignore jitter if trying to hold perfectly still
                     if velocity < self.deadzone_velocity:
                         skip_movement = True
+
+                # We use 1 Euro filter which inherently handles slowdowns nicely.
+                # But to add an 'ultra-precision' effect while locking, we can dynamically adjust the beta.
+                lock_progress = payload.get('lock_progress', 0.0)
+                if lock_progress > 0.0 or is_locked:
+                     self.filter_x.beta = 0.1
+                     self.filter_y.beta = 0.1
+                else:
+                     self.filter_x.beta = 0.8
+                     self.filter_y.beta = 0.8
 
                 if skip_movement:
                     continue

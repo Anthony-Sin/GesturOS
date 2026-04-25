@@ -37,6 +37,14 @@ class VisionPipeline:
         )
         self.detector = vision.FaceLandmarker.create_from_options(options)
 
+        # Locking mechanism variables
+        self.is_locked = False
+        self.anchor_point = None
+        self.anchor_start_time = 0
+        self.lock_duration_threshold = Config.LOCK_DURATION_THRESHOLD
+        self.movement_threshold = Config.LOCK_MOVEMENT_THRESHOLD
+        self.breakout_threshold = Config.LOCK_BREAKOUT_THRESHOLD
+
     def start(self):
         self.running = True
         cap = cv2.VideoCapture(0)
@@ -75,12 +83,60 @@ class VisionPipeline:
                 # Extract relevant blendshapes into a fast dict
                 blendshape_dict = {cat.category_name: cat.score for cat in blendshapes}
 
+                # --- Locking Mechanism Logic ---
+                current_time = time.time()
+
+                lock_progress = 0.0
+                if self.anchor_point is None:
+                    self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
+                    self.anchor_start_time = current_time
+                else:
+                    # Calculate distance from anchor
+                    dx = nose_tip.x - self.anchor_point['x']
+                    dy = nose_tip.y - self.anchor_point['y']
+                    distance = (dx**2 + dy**2)**0.5
+
+                    if not self.is_locked:
+                        # Check if we should lock
+                        if distance > self.movement_threshold:
+                            # Reset anchor if moved
+                            self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
+                            self.anchor_start_time = current_time
+                        else:
+                            # Calculate progress (starts showing after 3 seconds)
+                            elapsed = current_time - self.anchor_start_time
+                            # Total duration is 5s (by default). The first 3s are hidden. The last 2s show progress 0 -> 1.0
+                            hide_duration = 3.0
+
+                            if elapsed > hide_duration:
+                                visible_duration = self.lock_duration_threshold - hide_duration
+                                lock_progress = min(1.0, (elapsed - hide_duration) / visible_duration)
+                            else:
+                                lock_progress = 0.0
+
+                            # Check if duration has passed
+                            if elapsed >= self.lock_duration_threshold:
+                                self.is_locked = True
+                                print("Pipeline: Interface LOCKED.")
+                                lock_progress = 1.0
+                    else:
+                        lock_progress = 1.0
+                        # We are locked. Check if we should unlock (breakout)
+                        if distance > self.breakout_threshold:
+                            self.is_locked = False
+                            print("Pipeline: Interface UNLOCKED.")
+                            self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
+                            self.anchor_start_time = current_time
+                            lock_progress = 0.0
+
                 payload = {
                     'timestamp': timestamp_ms,
                     'nose_tip': {'x': nose_tip.x, 'y': nose_tip.y, 'z': nose_tip.z},
                     'blendshapes': blendshape_dict,
                     'landmarks': landmarks, # Passing all landmarks for the navigator to use
-                    'frame': cv2.flip(frame, 1) # Add a flipped copy of the frame for the UI
+                    'frame': cv2.flip(frame, 1), # Add a flipped copy of the frame for the UI
+                    'is_locked': self.is_locked,
+                    'lock_progress': lock_progress
                 }
 
                 # Non-blocking put
