@@ -24,12 +24,28 @@ class UIOverlay:
 
         self.root.geometry(f"{self.window_width}x{self.window_height}+{x_position}+{y_position}")
 
-        # Always on top
+        # Always on top and remove window borders for a sleek look
         self.root.attributes('-topmost', True)
-        # Optional: remove standard window borders for a cleaner look
-        # self.root.overrideredirect(True)
+        self.root.overrideredirect(True)
 
-        self.canvas = tk.Canvas(self.root, width=self.window_width, height=self.window_height)
+        # Configure a sleek black background
+        self.root.configure(bg='black')
+
+        # Create a header frame for dragging the borderless window
+        self.header = tk.Frame(self.root, bg='#222222', height=24)
+        self.header.pack(fill=tk.X)
+        self.header_label = tk.Label(self.header, text="Hands-Free Controller", fg='white', bg='#222222', font=("Helvetica", 10, "bold"))
+        self.header_label.pack(side=tk.LEFT, padx=10)
+
+        # Variables for dragging
+        self.drag_x = 0
+        self.drag_y = 0
+        self.header.bind("<ButtonPress-1>", self.start_move)
+        self.header.bind("<B1-Motion>", self.do_move)
+        self.header_label.bind("<ButtonPress-1>", self.start_move)
+        self.header_label.bind("<B1-Motion>", self.do_move)
+
+        self.canvas = tk.Canvas(self.root, width=self.window_width, height=self.window_height, bg='black', highlightthickness=0)
         self.canvas.pack()
         self.image_on_canvas = None
 
@@ -38,6 +54,15 @@ class UIOverlay:
 
         # Store blink status for visual feedback
         self.is_blinking = False
+
+    def start_move(self, event):
+        self.drag_x = event.x
+        self.drag_y = event.y
+
+    def do_move(self, event):
+        x = self.root.winfo_x() - self.drag_x + event.x
+        y = self.root.winfo_y() - self.drag_y + event.y
+        self.root.geometry(f"+{x}+{y}")
 
     def update_frame(self):
         try:
@@ -51,10 +76,10 @@ class UIOverlay:
                 nose_tip = payload['nose_tip']
                 blendshapes = payload['blendshapes']
 
-                # Check for blink for visual feedback
+                # Check for full blink for visual feedback
                 blink_left = blendshapes.get('eyeBlinkLeft', 0.0)
                 blink_right = blendshapes.get('eyeBlinkRight', 0.0)
-                self.is_blinking = (blink_left > 0.65 or blink_right > 0.65)
+                self.is_blinking = (blink_left > 0.65 and blink_right > 0.65)
 
                 # Resize frame to fit the window
                 frame = cv2.resize(frame, (self.window_width, self.window_height))
@@ -76,13 +101,17 @@ class UIOverlay:
                 color = (0, 0, 255) if self.is_blinking else (255, 0, 0)
                 cv2.circle(frame, (draw_x, draw_y), 5, color, -1)
 
-                if self.is_blinking:
-                    cv2.putText(frame, "CLICK!", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                # Make the frame slightly darker/sleeker
+                frame = cv2.convertScaleAbs(frame, alpha=0.8, beta=10)
 
-                # Draw Locked Status
+                # Modern aesthetic text and elements
+                if self.is_blinking:
+                    cv2.putText(frame, "CLICK", (20, 40), cv2.FONT_HERSHEY_DUPLEX, 1.2, (0, 200, 255), 2)
+
+                # Draw Drag-Lock Status
                 is_locked = payload.get('is_locked', False)
                 if is_locked:
-                    cv2.putText(frame, "LOCKED", (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+                    cv2.putText(frame, "DRAGGING", (20, 80), cv2.FONT_HERSHEY_DUPLEX, 1.0, (0, 255, 100), 2)
 
                 # Convert frame to PhotoImage
                 # Convert BGR to RGB for PIL

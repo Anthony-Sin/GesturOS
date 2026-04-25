@@ -40,9 +40,9 @@ class VisionPipeline:
         self.is_locked = False
         self.anchor_point = None
         self.anchor_start_time = 0
-        self.lock_duration_threshold = 10.0  # seconds
-        self.movement_threshold = 0.02       # 2% of the normalized screen space
-        self.breakout_threshold = 0.08       # Larger movement required to break out of lock
+        self.lock_duration_threshold = 10.0  # seconds for dragging lock
+        self.movement_threshold = 0.015      # tight threshold for holding still
+        self.breakout_threshold = 0.08       # Larger movement required to break out of lock (drop item)
 
     def start(self):
         self.running = True

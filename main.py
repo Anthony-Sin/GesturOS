@@ -10,6 +10,7 @@ from tools.cursor_engine.engine import CursorEngine
 from tools.action_dispatcher.dispatcher import ActionDispatcher
 from tools.system_navigator.navigator import SystemNavigator
 from tools.ui_engine.overlay import UIOverlay
+from tools.voice_engine.transcriber import VoiceTranscriber
 
 def main():
     # We use multiple queues to broadcast the data stream to all worker threads
@@ -29,6 +30,13 @@ def main():
     system_navigator = SystemNavigator(navigator_queue)
     ui_overlay = UIOverlay(ui_queue)
 
+    # Optional Voice Transcriber
+    voice_transcriber = None
+    try:
+        voice_transcriber = VoiceTranscriber()
+    except Exception as e:
+        print(f"Warning: Could not initialize Voice Transcriber. Skipping. Error: {e}")
+
     running = True
 
     def shutdown():
@@ -39,6 +47,8 @@ def main():
         cursor_engine.stop()
         action_dispatcher.stop()
         system_navigator.stop()
+        if voice_transcriber:
+            voice_transcriber.stop()
         ui_overlay.stop()
 
     def signal_handler(sig, frame):
@@ -98,6 +108,8 @@ def main():
     cursor_engine.start()
     action_dispatcher.start()
     system_navigator.start()
+    if voice_transcriber:
+        voice_transcriber.start()
 
     # Start UI (blocking call in main thread)
     try:

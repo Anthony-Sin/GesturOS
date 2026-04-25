@@ -116,12 +116,14 @@ class SystemNavigator:
                 if now - self.last_action_time > self.cooldown:
                     # Pitch: positive typically means looking down, negative looking up.
                     # OpenCV conventions can vary depending on exact 3D model used. Let's assume standard right-handed.
-                    if yaw > self.yaw_threshold:
-                        print("System Navigator: Yaw Right detected. Minimizing window.")
-                        # Windows: Win+D or Win+M. Linux: Ctrl+Super+D often. Pyautogui supports win+d
-                        pyautogui.hotkey('win', 'd')
-                        self.last_action_time = now
-                    elif yaw < -self.yaw_threshold:
+
+                    # Disabled Yaw Right to prevent accidental window minimizing when looking at edges
+                    # if yaw > self.yaw_threshold:
+                    #     print("System Navigator: Yaw Right detected. Minimizing window.")
+                    #     pyautogui.hotkey('win', 'd')
+                    #     self.last_action_time = now
+
+                    if yaw < -self.yaw_threshold:
                         print("System Navigator: Yaw Left detected. Alt+Tab.")
                         pyautogui.hotkey('alt', 'tab')
                         self.last_action_time = now

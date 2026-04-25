@@ -20,11 +20,11 @@ class CursorEngine:
 
         # Active Zone Multiplier Configuration
         # We assume the user's nose will mostly move within a central bounding box of the camera frame.
-        # e.g. center x +/- 0.1, center y +/- 0.1
+        # Reduced from 0.2 to 0.12 to increase sensitivity: requires even less head movement to reach screen edges.
         self.active_zone_x_center = 0.5
         self.active_zone_y_center = 0.5
-        self.active_zone_width = 0.2  # Map 20% of the camera width to the full screen
-        self.active_zone_height = 0.2 # Map 20% of the camera height to the full screen
+        self.active_zone_width = 0.12
+        self.active_zone_height = 0.12
 
     def start(self):
         self.running = True
@@ -49,13 +49,27 @@ class CursorEngine:
         return normalized
 
     def _run(self):
+        self.was_locked = False
+
         while self.running:
             try:
                 # Use a small timeout so we can periodically check self.running
                 payload = self.data_queue.get(timeout=0.1)
 
-                if payload.get('is_locked', False):
-                    continue
+                is_locked = payload.get('is_locked', False)
+
+                # Handle drag and drop via lock state
+                if is_locked and not self.was_locked:
+                    # Just entered lock state, press mouse down for dragging
+                    pyautogui.mouseDown()
+                    self.was_locked = True
+                elif not is_locked and self.was_locked:
+                    # Just exited lock state, release mouse
+                    pyautogui.mouseUp()
+                    self.was_locked = False
+
+                # We no longer `continue` (skip) on lock. We allow the cursor to move
+                # while locked so the user can drag the folder/window around.
 
                 nose_tip = payload['nose_tip']
 

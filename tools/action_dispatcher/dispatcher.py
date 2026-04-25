@@ -39,13 +39,16 @@ class ActionDispatcher:
 
                 now = time.time()
 
-                # Check Blink -> Click
-                # eyeBlinkLeft or eyeBlinkRight > 0.65
+                # Check Blink (Closing Eyes) -> Click
+                # User specifically requested that closing eyes over the nearest object clicks (not necessarily a single wink).
                 blink_left = blendshapes.get('eyeBlinkLeft', 0.0)
                 blink_right = blendshapes.get('eyeBlinkRight', 0.0)
 
-                if (blink_left > 0.65 or blink_right > 0.65) and (now - self.last_blink_time > self.cooldown_blink):
-                    print("Action: Click triggered!")
+                # If both eyes are closed, trigger a click
+                is_blink = (blink_left > 0.65 and blink_right > 0.65)
+
+                if is_blink and (now - self.last_blink_time > self.cooldown_blink):
+                    print("Action: Blink Click triggered!")
                     pyautogui.click()
                     self.last_blink_time = now
 
