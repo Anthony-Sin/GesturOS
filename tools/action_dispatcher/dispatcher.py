@@ -40,16 +40,16 @@ class ActionDispatcher:
 
                 now = time.time()
 
-                # Check Blink (Closing Eyes) -> Right Click
+                # Check Blink (Closing Eyes) -> Left Click
                 blink_left = blendshapes.get('eyeBlinkLeft', 0.0)
                 blink_right = blendshapes.get('eyeBlinkRight', 0.0)
 
-                # If both eyes are closed, trigger a right click
+                # If both eyes are closed, trigger a left click
                 is_blink = (blink_left > Config.BLINK_THRESHOLD and blink_right > Config.BLINK_THRESHOLD)
 
                 if is_blink and (now - self.last_blink_time > self.cooldown_blink):
-                    print("Action: Right Click triggered!")
-                    pyautogui.rightClick()
+                    print("Action: Left Click triggered!")
+                    pyautogui.click()
                     self.last_blink_time = now
 
                 # Check Jaw Open -> Scroll Down

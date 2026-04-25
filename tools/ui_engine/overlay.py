@@ -180,7 +180,7 @@ class UIOverlay:
                 cv2.putText(frame, f"R-EYE: {right_status}", (20, 50), font, 0.4, (0, 255, 0) if right_status=="OPEN" else (0, 0, 255), 1)
 
                 if self.is_blinking:
-                    cv2.putText(frame, "RIGHT CLICK", (180, 40), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 255), 1)
+                    cv2.putText(frame, "LEFT CLICK", (180, 40), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 255), 1)
 
                 # FPS Calculation and Render
                 if len(self.fps_queue) > 1:

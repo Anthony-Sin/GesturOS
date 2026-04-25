@@ -6,7 +6,7 @@ A local desktop service built in Python that acts as a hands-free accessibility 
 
 - **Cursor Engine**: Moves your mouse cursor based on the position of your nose. Uses an Exponential Moving Average (EMA) for smoothness and an "Active Zone" scaling multiplier so that small head movements map to the full screen, reducing physical strain.
 - **Action Dispatcher**: Translates your facial expressions into actions:
-  - **Blink** (Close Both Eyes) -> Right Click
+  - **Blink** (Close Both Eyes) -> Left Click
   - **Jaw Open** -> Scroll Down
   - **Smile** -> Enter
 - **System Navigator**: Translates extreme head poses into OS macros for practical navigation:

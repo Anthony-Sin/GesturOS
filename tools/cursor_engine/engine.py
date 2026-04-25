@@ -27,6 +27,7 @@ class CursorEngine:
         self.last_raw_x = None
         self.last_raw_y = None
         self.velocity_threshold = Config.VELOCITY_THRESHOLD
+        self.deadzone_velocity = Config.DEADZONE_VELOCITY
 
         # Active Zone Multiplier Configuration
         self.active_zone_x_center = Config.ACTIVE_ZONE_X_CENTER
@@ -92,7 +93,7 @@ class CursorEngine:
                     velocity = (dx**2 + dy**2)**0.5
 
                     # Micro-deadzone: If movement is practically zero, ignore it completely to prevent jitter when trying to hold perfectly still.
-                    if velocity < (self.velocity_threshold / 5.0):
+                    if velocity < self.deadzone_velocity:
                         skip_movement = True
                     elif velocity < self.velocity_threshold:
                         # Enter precision mode (high smoothing, slow movement)

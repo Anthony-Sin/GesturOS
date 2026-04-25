@@ -3,9 +3,9 @@
 class Config:
     # --- Vision Pipeline ---
     TARGET_FPS = 30
-    LOCK_DURATION_THRESHOLD = 10.0   # seconds required holding still to lock/drag
-    LOCK_MOVEMENT_THRESHOLD = 0.015  # normalized distance to be considered "holding still"
-    LOCK_BREAKOUT_THRESHOLD = 0.08   # normalized distance to break out of lock
+    LOCK_DURATION_THRESHOLD = 5.0    # seconds required holding still to lock/drag
+    LOCK_MOVEMENT_THRESHOLD = 0.025  # increased: easier to hold still without resetting timer
+    LOCK_BREAKOUT_THRESHOLD = 0.12   # increased: requires significant movement to break out/drop item
 
     # --- Cursor Engine ---
     ACTIVE_ZONE_X_CENTER = 0.5
@@ -16,6 +16,7 @@ class Config:
     BASE_ALPHA = 0.3                 # EMA smoothing for fast movement
     PRECISION_ALPHA = 0.05           # EMA smoothing for slow movement (precision mode)
     VELOCITY_THRESHOLD = 0.005       # threshold to enter precision mode
+    DEADZONE_VELOCITY = 0.003        # increased deadzone: completely ignore microscopic jitter
 
     # --- Action Dispatcher (Blendshapes) ---
     BLINK_THRESHOLD = 0.45           # Score required for eyes to be considered "closed"
