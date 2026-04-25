@@ -198,34 +198,6 @@ class UIOverlay:
                     color = (0, 255, 255) if "DICTATING" in voice_status else (200, 200, 200)
                     cv2.putText(frame, voice_status, (20, self.window_height - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, color, 1)
 
-                # Draw Drag-Lock Status & Progress
-                is_locked = payload.get('is_locked', False)
-                lock_progress = payload.get('lock_progress', 0.0)
-
-                if is_locked:
-                    cv2.putText(frame, "[ DRAGGING MODE ACTIVE ]", (50, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 100), 1)
-                elif lock_progress > 0.0:
-                    # Play subtle tick sounds as progress increases
-                    now = self.time_module.time()
-                    if lock_progress > 0.1 and now - self.last_tick_time > 0.4:
-                        AudioPlayer().play('lock_progress')
-                        self.last_tick_time = now
-
-                    # Draw a loading bar for lock progress
-                    bar_w = 100
-                    bar_h = 10
-                    start_x = self.window_width // 2 - bar_w // 2
-                    start_y = self.window_height - 30
-
-                    # Background
-                    cv2.rectangle(frame, (start_x, start_y), (start_x + bar_w, start_y + bar_h), (50, 50, 50), -1)
-                    # Foreground
-                    cv2.rectangle(frame, (start_x, start_y), (start_x + int(bar_w * lock_progress), start_y + bar_h), (0, 255, 255), -1)
-                    # Border
-                    cv2.rectangle(frame, (start_x, start_y), (start_x + bar_w, start_y + bar_h), (200, 200, 200), 1)
-
-                    cv2.putText(frame, "HOLD STILL TO DRAG", (start_x - 10, start_y - 5), font, 0.35, (200, 200, 200), 1)
-
                 # Convert frame to PhotoImage
                 # Convert BGR to RGB for PIL
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

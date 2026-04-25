@@ -5,6 +5,7 @@ import threading
 from config import Config
 from shared_state import state
 from tools.audio_engine.player import AudioPlayer
+from tools.cursor_engine.one_euro import OneEuroFilter
 
 class CursorEngine:
     def __init__(self, data_queue: queue.Queue):
@@ -16,20 +17,18 @@ class CursorEngine:
 
         self.screen_w, self.screen_h = pyautogui.size()
 
-        # Exponential Moving Average state
-        self.ema_x = None
-        self.ema_y = None
+        # 1 Euro Filter for advanced jitter-free smoothing
+        # beta: higher = more responsive to fast movements
+        # min_cutoff: lower = less jitter at low speeds
+        self.filter_x = OneEuroFilter(min_cutoff=0.01, beta=0.8)
+        self.filter_y = OneEuroFilter(min_cutoff=0.01, beta=0.8)
 
-        # Dynamic Sensitivity Configuration
-        self.base_alpha = Config.BASE_ALPHA
-        self.precision_alpha = Config.PRECISION_ALPHA
-        self.alpha = self.base_alpha
-
-        # Velocity tracking for dynamic sensitivity
         self.last_raw_x = None
         self.last_raw_y = None
-        self.velocity_threshold = Config.VELOCITY_THRESHOLD
         self.deadzone_velocity = Config.DEADZONE_VELOCITY
+
+        # Magnetic target integration
+        self.magnetic_pull = (0, 0)
 
         # Active Zone Multiplier Configuration
         self.active_zone_x_center = Config.ACTIVE_ZONE_X_CENTER
@@ -60,8 +59,6 @@ class CursorEngine:
         return normalized
 
     def _run(self):
-        self.was_locked = False
-
         while self.running:
             try:
                 # Use a small timeout so we can periodically check self.running
@@ -71,52 +68,22 @@ class CursorEngine:
                 if state.get("dictation_active", False):
                     continue
 
-                is_locked = payload.get('is_locked', False)
-
-                # Handle drag and drop via lock state
-                if is_locked and not self.was_locked:
-                    # Just entered lock state, press mouse down for dragging
-                    AudioPlayer().play('lock_engage')
-                    pyautogui.mouseDown()
-                    self.was_locked = True
-                elif not is_locked and self.was_locked:
-                    # Just exited lock state, release mouse
-                    AudioPlayer().play('lock_release')
-                    pyautogui.mouseUp()
-                    self.was_locked = False
-
-                # We no longer `continue` (skip) on lock. We allow the cursor to move
-                # while locked so the user can drag the folder/window around.
-
                 nose_tip = payload['nose_tip']
+                timestamp = payload['timestamp'] / 1000.0 # seconds for the filter
 
                 raw_x = nose_tip['x']
                 raw_y = nose_tip['y']
 
-                # Dynamic Sensitivity: Slow down when head is moving very little
                 skip_movement = False
-
-                # Check for Lock-in Slowdown Effect
-                lock_progress = payload.get('lock_progress', 0.0)
-                is_locking = lock_progress > 0.0 or is_locked
 
                 if self.last_raw_x is not None and self.last_raw_y is not None:
                     dx = raw_x - self.last_raw_x
                     dy = raw_y - self.last_raw_y
                     velocity = (dx**2 + dy**2)**0.5
 
-                    # Micro-deadzone: If movement is practically zero, ignore it completely to prevent jitter when trying to hold perfectly still.
+                    # Micro-deadzone: completely ignore jitter if trying to hold perfectly still
                     if velocity < self.deadzone_velocity:
                         skip_movement = True
-                    elif is_locking:
-                        # Ultra-precision mode while the lock is engaging or active ("slow down everything")
-                        self.alpha = self.precision_alpha * 0.2
-                    elif velocity < self.velocity_threshold:
-                        # Enter standard precision mode (high smoothing, slow movement)
-                        self.alpha = self.precision_alpha
-                    else:
-                        # Exit precision mode (fast movement)
-                        self.alpha = self.base_alpha
 
                 if skip_movement:
                     continue
@@ -124,8 +91,7 @@ class CursorEngine:
                 self.last_raw_x = raw_x
                 self.last_raw_y = raw_y
 
-                # Apply Active Zone scaling
-                # Note: Webcam X axis is usually mirrored. Let's assume raw_x needs to be inverted.
+                # Apply Active Zone scaling (invert X because webcam is mirrored)
                 scaled_x = self._normalize_to_active_zone(1.0 - raw_x, self.active_zone_x_center, self.active_zone_width)
                 scaled_y = self._normalize_to_active_zone(raw_y, self.active_zone_y_center, self.active_zone_height)
 
@@ -133,17 +99,18 @@ class CursorEngine:
                 target_x = scaled_x * self.screen_w
                 target_y = scaled_y * self.screen_h
 
-                # Apply EMA
-                if self.ema_x is None or self.ema_y is None:
-                    self.ema_x = target_x
-                    self.ema_y = target_y
-                else:
-                    self.ema_x = self.alpha * target_x + (1 - self.alpha) * self.ema_x
-                    self.ema_y = self.alpha * target_y + (1 - self.alpha) * self.ema_y
+                # Add Magnetic Pull (from predictive magnetism thread)
+                mx, my = self.magnetic_pull
+                target_x += mx
+                target_y += my
+
+                # Apply 1 Euro Filter (dynamically handles slow jitter vs fast tracking)
+                filtered_x = self.filter_x(target_x, timestamp)
+                filtered_y = self.filter_y(target_y, timestamp)
 
                 # Move physical mouse
                 try:
-                    pyautogui.moveTo(int(self.ema_x), int(self.ema_y))
+                    pyautogui.moveTo(int(filtered_x), int(filtered_y))
                 except Exception as e:
                     print(f"Failed to move mouse: {e}")
 

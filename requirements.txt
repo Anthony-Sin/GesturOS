@@ -8,3 +8,4 @@ pynput>=1.7.6
 SpeechRecognition>=3.10.0
 pyaudio>=0.2.14
 pygame>=2.5.0
+mss>=10.0.0

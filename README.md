@@ -13,7 +13,7 @@ A local desktop service built in Python that acts as a hands-free accessibility 
   - **Yaw Left** -> Browser Back (`Alt + Left`)
   - **Yaw Right** -> Browser Forward (`Alt + Right`)
   - **Pitch Up** -> Scroll Up
-- **Drag-and-Drop Locking**: Hold your head still over an item for 5 seconds to trigger a `mouseDown` lock (with a visual progress bar). Move your head to drag the item, and make a sharp movement to break the lock and drop it.
+- **Predictive Target Magnetism**: Employs real-time OpenCV edge-detection around your cursor. When hovering near clickable UI elements (like buttons or text boxes), the engine generates a subtle magnetic pull, snapping your cursor precisely to the target.
 - **Continuous Voice Dictation**: Say **"transcribe me"** to enter dictation mode. The application will pause all head-tracking and macros so you can speak freely, continuously typing out your words using the Google Web Speech API. Say **"transcribe done"** to exit dictation and resume tracking.
 - **HUD UI Overlay**: A modern, draggable, borderless HUD in the corner of your screen. It features real-time eye-tracking crosshairs, lock-progress loading bars, a fading nose-movement tail, dictation status text, and a live FPS performance counter.
 - **Panic Hotkey**: Press `Alt + Q` at any time to instantly and safely force-quit the application.

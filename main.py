@@ -11,6 +11,7 @@ from tools.action_dispatcher.dispatcher import ActionDispatcher
 from tools.system_navigator.navigator import SystemNavigator
 from tools.ui_engine.overlay import UIOverlay
 from tools.voice_engine.transcriber import VoiceTranscriber
+from tools.cursor_engine.magnetism import TargetMagnetism
 
 def main():
     # We use multiple queues to broadcast the data stream to all worker threads
@@ -30,6 +31,9 @@ def main():
     system_navigator = SystemNavigator(navigator_queue)
     ui_overlay = UIOverlay(ui_queue)
 
+    # Target Magnetism for UI Snapping
+    target_magnetism = TargetMagnetism(cursor_engine)
+
     # Optional Voice Transcriber
     voice_transcriber = None
     try:
@@ -47,6 +51,7 @@ def main():
         cursor_engine.stop()
         action_dispatcher.stop()
         system_navigator.stop()
+        target_magnetism.stop()
         if voice_transcriber:
             voice_transcriber.stop()
         ui_overlay.stop()
@@ -108,6 +113,7 @@ def main():
     cursor_engine.start()
     action_dispatcher.start()
     system_navigator.start()
+    target_magnetism.start()
     if voice_transcriber:
         voice_transcriber.start()
 

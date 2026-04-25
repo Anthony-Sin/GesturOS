@@ -3,9 +3,6 @@
 class Config:
     # --- Vision Pipeline ---
     TARGET_FPS = 30
-    LOCK_DURATION_THRESHOLD = 5.0    # seconds required holding still to lock/drag
-    LOCK_MOVEMENT_THRESHOLD = 0.025  # increased: easier to hold still without resetting timer
-    LOCK_BREAKOUT_THRESHOLD = 0.12   # increased: requires significant movement to break out/drop item
 
     # --- Cursor Engine ---
     ACTIVE_ZONE_X_CENTER = 0.5
@@ -19,8 +16,8 @@ class Config:
     DEADZONE_VELOCITY = 0.003        # increased deadzone: completely ignore microscopic jitter
 
     # --- Action Dispatcher (Blendshapes) ---
-    BLINK_THRESHOLD = 0.45           # Score required for eyes to be considered "closed"
-    BLINK_DURATION_THRESHOLD = 0.4   # seconds eyes must remain closed to trigger click
+    BLINK_THRESHOLD = 0.35           # lowered: Score required for eyes to be considered "closed"
+    BLINK_DURATION_THRESHOLD = 0.15  # lowered: seconds eyes must remain closed to trigger click
     BLINK_COOLDOWN = 0.8             # cooldown after a successful click
     SMILE_THRESHOLD = 0.60           # Score required to trigger 'Enter'
     SMILE_COOLDOWN = 1.0

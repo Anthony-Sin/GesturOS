@@ -102,7 +102,7 @@ class SystemNavigator:
                 payload = self.data_queue.get(timeout=0.1)
 
                 # Pause system navigation if dictation is active
-                if state.get("dictation_active", False) or payload.get('is_locked', False):
+                if state.get("dictation_active", False):
                     continue
 
                 landmarks = payload['landmarks']
