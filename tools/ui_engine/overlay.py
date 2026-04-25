@@ -107,6 +107,26 @@ class UIOverlay:
 
                 self.path_points.append((draw_x, draw_y))
 
+                # Extract eye landmarks for visual tracking
+                # MediaPipe Landmark 159 is top of right eye, 145 is bottom (user's right, camera left if flipped)
+                # MediaPipe Landmark 386 is top of left eye, 374 is bottom
+                # We'll use 468 (Left Iris) and 473 (Right Iris) if available, or fallback to center of eye corners.
+                # Standard face mesh has left eye center ~ 159/145 area. Let's use 33 (left corner) and 263 (right corner) for simple position.
+
+                if landmarks and len(landmarks) > 263:
+                    # User's Left Eye (Right side of flipped camera frame)
+                    left_eye_lm = landmarks[33]
+                    left_eye_x = int((1.0 - left_eye_lm.x) * self.window_width)
+                    left_eye_y = int(left_eye_lm.y * self.window_height)
+
+                    # User's Right Eye (Left side of flipped camera frame)
+                    right_eye_lm = landmarks[263]
+                    right_eye_x = int((1.0 - right_eye_lm.x) * self.window_width)
+                    right_eye_y = int(right_eye_lm.y * self.window_height)
+                else:
+                    left_eye_x, left_eye_y = -1, -1
+                    right_eye_x, right_eye_y = -1, -1
+
                 # Draw the path on the frame (Sleeker trailing effect)
                 if len(self.path_points) > 1:
                     pts = list(self.path_points)
@@ -122,9 +142,23 @@ class UIOverlay:
                 cv2.line(frame, (draw_x, draw_y - 10), (draw_x, draw_y + 10), cross_color, 1)
                 cv2.circle(frame, (draw_x, draw_y), 4, cross_color, 1)
 
-                # Eye Tracking Status Text
-                left_status = "CLOSED" if blink_left > 0.65 else "OPEN"
-                right_status = "CLOSED" if blink_right > 0.65 else "OPEN"
+                # Eye Tracking Status Text & Colors
+                # The prompt requested Right Click when *both* eyes close, which we implemented.
+                # Here we just track individual status for the UI.
+                left_closed = blink_left > 0.45
+                right_closed = blink_right > 0.45
+
+                left_status = "CLOSED" if left_closed else "OPEN"
+                right_status = "CLOSED" if right_closed else "OPEN"
+
+                # Draw Visual Eye Tracking Overlays
+                if left_eye_x != -1 and left_eye_y != -1:
+                    l_color = (0, 0, 255) if left_closed else (0, 255, 0)
+                    cv2.circle(frame, (left_eye_x, left_eye_y), 6, l_color, 2)
+
+                if right_eye_x != -1 and right_eye_y != -1:
+                    r_color = (0, 0, 255) if right_closed else (0, 255, 0)
+                    cv2.circle(frame, (right_eye_x, right_eye_y), 6, r_color, 2)
 
                 # Make the frame slightly darker/sleeker
                 frame = cv2.convertScaleAbs(frame, alpha=0.8, beta=10)

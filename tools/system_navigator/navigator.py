@@ -129,11 +129,11 @@ class SystemNavigator:
                         pyautogui.hotkey('alt', 'left')
                         self.last_action_time = now
 
-                    # Pitch Down -> Show Desktop / Minimize All (Win+D)
-                    elif pitch > self.pitch_threshold:
-                        print("System Navigator: Pitch Down detected. Show Desktop.")
-                        pyautogui.hotkey('win', 'd')
-                        self.last_action_time = now
+                    # Disabled Pitch Down to prevent minimizing windows when looking at the bottom of the screen.
+                    # elif pitch > self.pitch_threshold:
+                    #     print("System Navigator: Pitch Down detected. Show Desktop.")
+                    #     pyautogui.hotkey('win', 'd')
+                    #     self.last_action_time = now
 
                     # Pitch Up -> Scroll Up (Pairs well with Jaw Open for Scroll Down)
                     elif pitch < -self.pitch_threshold:
