@@ -78,7 +78,8 @@ class VisionPipeline:
                     'timestamp': timestamp_ms,
                     'nose_tip': {'x': nose_tip.x, 'y': nose_tip.y, 'z': nose_tip.z},
                     'blendshapes': blendshape_dict,
-                    'landmarks': landmarks # Passing all landmarks for the navigator to use
+                    'landmarks': landmarks, # Passing all landmarks for the navigator to use
+                    'frame': cv2.flip(frame, 1) # Add a flipped copy of the frame for the UI
                 }
 
                 # Non-blocking put
