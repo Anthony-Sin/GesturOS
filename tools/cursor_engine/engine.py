@@ -16,7 +16,16 @@ class CursorEngine:
         # Exponential Moving Average state
         self.ema_x = None
         self.ema_y = None
-        self.alpha = 0.3 # Smoothing factor: lower = smoother, higher = more responsive
+
+        # Dynamic Sensitivity Configuration
+        self.base_alpha = 0.3      # Fast movement responsiveness
+        self.precision_alpha = 0.05 # Slow movement precision
+        self.alpha = self.base_alpha
+
+        # Velocity tracking for dynamic sensitivity
+        self.last_raw_x = None
+        self.last_raw_y = None
+        self.velocity_threshold = 0.005 # Normalized distance per frame
 
         # Active Zone Multiplier Configuration
         # We assume the user's nose will mostly move within a central bounding box of the camera frame.
@@ -75,6 +84,22 @@ class CursorEngine:
 
                 raw_x = nose_tip['x']
                 raw_y = nose_tip['y']
+
+                # Dynamic Sensitivity: Slow down when head is moving very little
+                if self.last_raw_x is not None and self.last_raw_y is not None:
+                    dx = raw_x - self.last_raw_x
+                    dy = raw_y - self.last_raw_y
+                    velocity = (dx**2 + dy**2)**0.5
+
+                    if velocity < self.velocity_threshold:
+                        # Enter precision mode (high smoothing, slow movement)
+                        self.alpha = self.precision_alpha
+                    else:
+                        # Exit precision mode (fast movement)
+                        self.alpha = self.base_alpha
+
+                self.last_raw_x = raw_x
+                self.last_raw_y = raw_y
 
                 # Apply Active Zone scaling
                 # Note: Webcam X axis is usually mirrored. Let's assume raw_x needs to be inverted.
