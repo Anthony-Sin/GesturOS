@@ -50,5 +50,9 @@ default_config = {
     # Fast path OS command translation
     "LLM_FLASH_MODEL": "gemini-1.5-flash",
     # Complex autonomous computer use tasks
-    "LLM_AGENT_MODEL": "gemini-2.5-computer-use-preview-10-2025"
+    "LLM_AGENT_MODEL": "gemini-2.5-computer-use-preview-10-2025",
+
+    # --- Scrolling Settings ---
+    "SCROLL_BROW_THRESHOLD": 0.4,
+    "SCROLL_HOLD_DURATION": 5.0
 }
