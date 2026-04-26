@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 
 import mss
 import pyautogui
-import pyttsx3
 import speech_recognition as sr
 from PIL import Image
 
@@ -46,14 +45,6 @@ class GeminiDesktopAgent(BaseBlindAgent):
         self.recognizer.energy_threshold = 300
         self.recognizer.pause_threshold = 0.8
 
-        # Init Text-to-Speech
-        try:
-            self.tts = pyttsx3.init()
-            self.tts.setProperty('rate', 150) # Speaking speed
-        except Exception as e:
-            print(f"Failed to init TTS: {e}")
-            self.tts = None
-
         self.sct = mss.mss()
         self.screen_width, self.screen_height = pyautogui.size()
 
@@ -61,10 +52,10 @@ class GeminiDesktopAgent(BaseBlindAgent):
         self.conversation_history = []
 
     def speak(self, text):
-        print(f"[Agent Says]: {text}")
-        if self.tts:
-            self.tts.say(text)
-            self.tts.runAndWait()
+        if self.audio_player:
+            self.audio_player.speak(text)
+        else:
+            print(f"[Agent Says]: {text}")
 
     def start(self):
         self.running = True

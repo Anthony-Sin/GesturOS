@@ -1,5 +1,13 @@
+import os
+import io
 import pygame
 import numpy as np
+import pyttsx3
+import threading
+from elevenlabs.client import ElevenLabs
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class AudioPlayer:
     _instance = None
@@ -15,6 +23,23 @@ class AudioPlayer:
             try:
                 # Initialize pygame mixer with standard settings (44100 Hz, 16 bit, 2 channels)
                 pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
+
+                # Initialize pyttsx3 fallback
+                try:
+                    self.tts = pyttsx3.init()
+                    self.tts.setProperty('rate', 150)
+                except Exception as e:
+                    print(f"Failed to init pyttsx3 fallback: {e}")
+                    self.tts = None
+
+                # Initialize ElevenLabs
+                self.elevenlabs_client = None
+                api_key = os.getenv("ELEVENLABS_API_KEY")
+                if api_key:
+                    try:
+                        self.elevenlabs_client = ElevenLabs(api_key=api_key)
+                    except Exception as e:
+                        print(f"Failed to init ElevenLabs client: {e}")
 
                 # Pre-generate sounds procedurally to avoid file dependencies
                 self.sounds = {
@@ -93,3 +118,51 @@ class AudioPlayer:
         if sound:
             # Play on an available channel
             sound.play()
+
+    def speak(self, text):
+        print(f"[Audio Engine Says]: {text}")
+        if not text:
+            return
+
+        def _speak_thread():
+            use_fallback = True
+
+            if self.elevenlabs_client:
+                try:
+                    # Generate speech
+                    audio_generator = self.elevenlabs_client.generate(
+                        text=text,
+                        voice="Rachel",
+                        model="eleven_multilingual_v2"
+                    )
+
+                    # Accumulate bytes
+                    audio_data = b""
+                    for chunk in audio_generator:
+                        if chunk:
+                            audio_data += chunk
+
+                    # Play via pygame using an in-memory file
+                    if audio_data:
+                        audio_file = io.BytesIO(audio_data)
+                        try:
+                            # Use pygame to load the mp3 bytes
+                            sound = pygame.mixer.Sound(audio_file)
+                            sound.play()
+                            # Wait for it to finish playing
+                            pygame.time.wait(int(sound.get_length() * 1000))
+                            use_fallback = False
+                        except pygame.error as e:
+                            print(f"Pygame failed to play ElevenLabs audio: {e}")
+                except Exception as e:
+                    print(f"ElevenLabs generation failed: {e}")
+
+            if use_fallback and self.tts:
+                try:
+                    self.tts.say(text)
+                    self.tts.runAndWait()
+                except Exception as e:
+                    print(f"pyttsx3 fallback failed: {e}")
+
+        # Run speech in background to avoid blocking
+        threading.Thread(target=_speak_thread, daemon=True).start()
