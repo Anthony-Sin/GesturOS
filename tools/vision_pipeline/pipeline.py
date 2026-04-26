@@ -17,16 +17,18 @@ logger = logging.getLogger(__name__)
 MODEL_PATH = 'face_landmarker.task'
 MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 
+
 def download_model_if_missing():
     if not os.path.exists(MODEL_PATH):
         logger.info("Downloading Face Landmarker model...")
         urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
         logger.info("Download complete.")
 
+
 def rotation_matrix_to_angles(rotation_matrix):
     """
     Calculate Euler angles from rotation matrix.
-    :param rotation_matrix: A 3x3 matrix representing the rotation
+    :param rotation_matrix: A 3x3 numpy array representing the rotation
     :return: A tuple (pitch, yaw, roll) in degrees
     """
     x = math.atan2(rotation_matrix[2, 1], rotation_matrix[2, 2])
@@ -39,6 +41,7 @@ def rotation_matrix_to_angles(rotation_matrix):
 
     return pitch, yaw, roll
 
+
 class VisionPipeline(BaseVisionEngine):
     def __init__(self, data_queue: queue.Queue, config: dict, shared_state: dict):
         self.data_queue = data_queue
@@ -48,18 +51,26 @@ class VisionPipeline(BaseVisionEngine):
         self.target_fps = self.config.get("TARGET_FPS", 30)
         self.frame_duration = 1.0 / self.target_fps
         self.running = False
+        self.detector = None
 
         download_model_if_missing()
 
-        base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
-        options = vision.FaceLandmarkerOptions(
-            base_options=base_options,
-            output_face_blendshapes=True,
-            output_facial_transformation_matrixes=True,
-            num_faces=1,
-            running_mode=vision.RunningMode.VIDEO
-        )
-        self.detector = vision.FaceLandmarker.create_from_options(options)
+        # Wrap detector init — a mediapipe version mismatch or bad model file
+        # will throw here and silently kill the pipeline before it ever starts.
+        try:
+            base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
+            options = vision.FaceLandmarkerOptions(
+                base_options=base_options,
+                output_face_blendshapes=True,
+                output_facial_transformation_matrixes=True,
+                num_faces=1,
+                running_mode=vision.RunningMode.VIDEO
+            )
+            self.detector = vision.FaceLandmarker.create_from_options(options)
+            logger.info("FaceLandmarker detector initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize FaceLandmarker detector: {e}", exc_info=True)
+            self.detector = None
 
         # Locking mechanism variables
         self.is_locked = False
@@ -79,6 +90,12 @@ class VisionPipeline(BaseVisionEngine):
         self.look_away_yaw_thresh = self.config.get("LOOK_AWAY_YAW_THRESHOLD", 35.0)
 
     def start(self):
+        # If detector failed to init, bail immediately with a clear error
+        # instead of crashing silently mid-loop when self.detector is called.
+        if self.detector is None:
+            logger.error("Vision pipeline cannot start: FaceLandmarker detector is not initialized.")
+            return
+
         self.running = True
         cap = cv2.VideoCapture(0)
 
@@ -88,12 +105,30 @@ class VisionPipeline(BaseVisionEngine):
             return
 
         logger.info("Vision pipeline started.")
+
+        # Wrap the entire run loop so any unhandled exception gets logged
+        # instead of silently killing the daemon thread.
+        try:
+            self._run_loop(cap)
+        except Exception as e:
+            logger.error(f"Vision pipeline crashed with unhandled exception: {e}", exc_info=True)
+        finally:
+            cap.release()
+            try:
+                self.detector.close()
+            except Exception:
+                pass
+            logger.info("Vision pipeline stopped.")
+
+    def _run_loop(self, cap):
         while self.running:
             start_time = time.time()
 
             success, frame = cap.read()
-            if not success:
-                logger.debug("Ignoring empty camera frame.")
+
+            # Guard against empty, None, or zero-size frames during camera warmup
+            if not success or frame is None or frame.size == 0:
+                logger.debug("Ignoring empty or invalid camera frame.")
                 continue
 
             timestamp_ms = int(time.time() * 1000)
@@ -104,7 +139,6 @@ class VisionPipeline(BaseVisionEngine):
             if self.previous_frame_gray is not None and self.last_known_payload is not None:
                 diff = cv2.absdiff(current_frame_gray, self.previous_frame_gray)
                 mean_diff = np.mean(diff)
-
                 if mean_diff < self.frame_diff_threshold:
                     should_process_mediapipe = False
 
@@ -124,10 +158,20 @@ class VisionPipeline(BaseVisionEngine):
                         self.x = d['x']
                         self.y = d['y']
                         self.z = d.get('z', 0)
+
                 nose_tip = MockNoseTip(nose_tip_dict)
             else:
-                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                detection_result = self.detector.detect_for_video(mp_image, timestamp_ms)
+                try:
+                    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+                    detection_result = self.detector.detect_for_video(mp_image, timestamp_ms)
+                except Exception as e:
+                    logger.warning(f"MediaPipe detection failed on this frame, skipping: {e}")
+                    elapsed = time.time() - start_time
+                    sleep_time = self.frame_duration - elapsed
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
+                    continue
 
                 if detection_result.face_landmarks:
                     landmarks = detection_result.face_landmarks[0]
@@ -136,15 +180,18 @@ class VisionPipeline(BaseVisionEngine):
                     nose_tip = landmarks[1]
                     blendshape_dict = {cat.category_name: cat.score for cat in blendshapes}
 
-                    # Check for "Look Away" using transformation matrix
+                    # Safely parse transformation matrix — MediaPipe's native matrix
+                    # type does not always support numpy-style [:3, :3] slicing.
                     if detection_result.facial_transformation_matrixes:
-                        matrix = detection_result.facial_transformation_matrixes[0]
-                        # Extract 3x3 rotation matrix from the 4x4 matrix
-                        rotation_matrix = matrix[:3, :3]
-                        pitch, yaw, roll = rotation_matrix_to_angles(rotation_matrix)
-
-                        if abs(pitch) > self.look_away_pitch_thresh or abs(yaw) > self.look_away_yaw_thresh:
-                            is_looking_away = True
+                        try:
+                            matrix = detection_result.facial_transformation_matrixes[0]
+                            mat_np = np.array(matrix).reshape(4, 4)
+                            rotation_matrix = mat_np[:3, :3]
+                            pitch, yaw, roll = rotation_matrix_to_angles(rotation_matrix)
+                            if abs(pitch) > self.look_away_pitch_thresh or abs(yaw) > self.look_away_yaw_thresh:
+                                is_looking_away = True
+                        except Exception as e:
+                            logger.warning(f"Could not parse facial transformation matrix: {e}")
 
             if nose_tip is not None:
                 current_time = time.time()
@@ -156,7 +203,7 @@ class VisionPipeline(BaseVisionEngine):
                 else:
                     dx = nose_tip.x - self.anchor_point['x']
                     dy = nose_tip.y - self.anchor_point['y']
-                    distance = (dx**2 + dy**2)**0.5
+                    distance = (dx ** 2 + dy ** 2) ** 0.5
 
                     if not self.is_locked:
                         if distance > self.movement_threshold:
@@ -208,10 +255,6 @@ class VisionPipeline(BaseVisionEngine):
             sleep_time = self.frame_duration - elapsed
             if sleep_time > 0:
                 time.sleep(sleep_time)
-
-        cap.release()
-        self.detector.close()
-        logger.info("Vision pipeline stopped.")
 
     def stop(self):
         self.running = False

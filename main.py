@@ -1,3 +1,8 @@
+import os 
+os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
+os.environ["QT_SCALE_FACTOR"] = "1"
+os.environ["QT_FONT_DPI"] = "96"
+os.environ["QT_DPI_ADJUSTMENT_POLICY"] = "AdjustDpi"
 import queue
 import time
 import signal
@@ -8,7 +13,9 @@ import logging
 import traceback
 import logging.handlers
 from pynput import keyboard
-
+import speech_recognition as sr
+import pyaudio as _pyaudio
+_pyaudio.PyAudio.terminate = lambda self: None
 # Setup global logger
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.DEBUG)
@@ -69,7 +76,11 @@ def launch_app():
 =========================================================
 """)
     config, shared_state, audio_player = init_dependencies()
-
+    shared_mic = None
+    try:
+        shared_mic = sr.Microphone()
+    except Exception as e:
+        logger.warning(f"Could not open microphone: {e}")
     cursor_queue = queue.Queue(maxsize=5)
     action_queue = queue.Queue(maxsize=5)
     ui_queue = queue.Queue(maxsize=5)
@@ -115,7 +126,6 @@ def launch_app():
     def on_activate_exit():
         logger.info("\n[!] Global hotkey Alt+Q pressed. Force Exiting...")
         shutdown()
-        import os
         os._exit(0)
 
     hotkey_listener = keyboard.GlobalHotKeys({
@@ -142,8 +152,17 @@ def launch_app():
     broadcast_thread = threading.Thread(target=broadcaster, daemon=True)
     broadcast_thread.start()
 
-    pipeline_thread = threading.Thread(target=pipeline.start, daemon=True)
+
+    def safe_pipeline_start():
+        try:
+            pipeline.start()
+        except Exception as e:
+            logger.exception(f"Vision pipeline thread died: {e}")
+
+    pipeline_thread = threading.Thread(target=safe_pipeline_start, daemon=True)
     pipeline_thread.start()
+    time.sleep(3)  # give camera time to init
+    logger.info(f"Pipeline running state after 3s: {pipeline.running}")
 
     cursor_engine.start()
     action_dispatcher.start()

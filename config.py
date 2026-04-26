@@ -1,38 +1,27 @@
-# Default configuration dictionary for easy dependency injection
 default_config = {
     # --- Vision Pipeline ---
     "TARGET_FPS": 30,
-    # Threshold for skipping MediaPipe processing on near-identical frames. Higher = more skips.
     "FRAME_DIFF_THRESHOLD": 1.0,
 
     # --- Cursor Engine ---
-    # Raising active zone centers moves the start point to track head positioning.
     "ACTIVE_ZONE_X_CENTER": 0.5,
     "ACTIVE_ZONE_Y_CENTER": 0.45,
 
-    # Enlarging width/height makes the cursor move less distance per degree of head movement.
-    # We enlarge these to drastically decrease sensitivity, forcing larger physical head movements.
-    # We lowered them slightly here to reduce the amount the head has to turn to click.
-    "ACTIVE_ZONE_WIDTH": 0.20,
-    "ACTIVE_ZONE_HEIGHT": 0.12,
+    # REDUCED: Less physical neck movement required to reach screen edges.
+    "ACTIVE_ZONE_WIDTH": 0.12,  
+    "ACTIVE_ZONE_HEIGHT": 0.08,
 
-    # Lowering alpha increases smoothing so the cursor glides rather than snapping around.
-    "BASE_ALPHA": 0.15,
-    "PRECISION_ALPHA": 0.05,
+    # REDUCED: More drag/smoothing applied to counteract the smaller active zone.
+    "BASE_ALPHA": 0.08, 
+    "PRECISION_ALPHA": 0.02,
 
-    # Raising velocity thresholds prevents micro-head movements (wobbles) from moving the cursor.
-    "VELOCITY_THRESHOLD": 0.003,
-    "DEADZONE_VELOCITY": 0.002,
+    # INCREASED: Ignores tiny head tremors so the cursor stays still when resting.
+    "VELOCITY_THRESHOLD": 0.005, 
+    "DEADZONE_VELOCITY": 0.003,
 
     # --- Action Dispatcher (Blendshapes) ---
-    # Raising the blink threshold requires a harder/more closed eye blink to register.
-    "BLINK_THRESHOLD": 0.26,
-
-    # Raising the duration threshold forces the user to deliberately hold their eyes shut,
-    # preventing reflex blinks from triggering clicks.
-    "BLINK_DURATION_THRESHOLD": 0.25,
-
-    # Raising cooldown makes it physically impossible to double-fire a blink action unintentionally.
+    "BLINK_THRESHOLD": 0.5,
+    "BLINK_DURATION_THRESHOLD": 0.35,
     "BLINK_COOLDOWN": 2.0,
 
     # --- UI Overlay ---
@@ -44,13 +33,12 @@ default_config = {
 
     # --- Target Magnetism ---
     "MAGNETISM_SEARCH_RADIUS": 150,
-    "MAGNETISM_PULL_STRENGTH": 0.6,
+    # You might want to slightly increase pull strength if you still have trouble clicking targets
+    "MAGNETISM_PULL_STRENGTH": 0.7, 
     "MAGNETISM_TRIGGER_DISTANCE": 40,
 
     # --- AI Models ---
-    # Fast path OS command translation
     "LLM_FLASH_MODEL": "gemini-1.5-flash",
-    # Complex autonomous computer use tasks
     "LLM_AGENT_MODEL": "gemini-2.5-computer-use-preview-10-2025",
 
     # --- Scrolling Settings ---
@@ -58,7 +46,6 @@ default_config = {
     "SCROLL_HOLD_DURATION": 5.0,
 
     # --- Look Away Auto-Pause Settings ---
-    # Angle in degrees. If head yaw or pitch exceeds this, tracking automatically pauses.
     "LOOK_AWAY_PITCH_THRESHOLD": 35.0,
     "LOOK_AWAY_YAW_THRESHOLD": 35.0
 }

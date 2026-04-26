@@ -3,18 +3,26 @@ import threading
 import pyautogui
 import logging
 from tools.interfaces import BaseVoiceEngine
+from tools.audio_engine.pyaudio_singleton import get_pyaudio
 
 logger = logging.getLogger(__name__)
 
 class VoiceTranscriber(BaseVoiceEngine):
-    def __init__(self, config: dict, shared_state: dict, audio_player):
+    def __init__(self, config: dict, shared_state: dict, audio_player, microphone=None):
         self.config = config
         self.shared_state = shared_state
         self.audio_player = audio_player
         self.recognizer = sr.Recognizer()
 
         try:
-            self.microphone = sr.Microphone()
+            if microphone is not None:
+                self.microphone = microphone
+            else:
+                try:
+                    self.microphone = sr.Microphone()
+                except Exception:
+                    self.microphone = None
+                    logger.warning("No mic found for transcriber.")
         except Exception:
             self.microphone = None
             logger.warning("No mic found for transcriber.")

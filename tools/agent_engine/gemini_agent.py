@@ -19,13 +19,14 @@ from google import genai
 from google.genai import types
 from google.genai.types import Content, Part
 from tools.interfaces import BaseBlindAgent
+from tools.audio_engine.pyaudio_singleton import get_pyaudio
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 class GeminiDesktopAgent(BaseBlindAgent):
-    def __init__(self, config: dict, shared_state: dict, audio_player):
+    def __init__(self, config: dict, shared_state: dict, audio_player, microphone=None):
         self.config = config
         self.shared_state = shared_state
         self.audio_player = audio_player
@@ -42,7 +43,15 @@ class GeminiDesktopAgent(BaseBlindAgent):
 
         self.recognizer = sr.Recognizer()
         try:
-            self.microphone = sr.Microphone()
+            if microphone is not None:
+                self.microphone = microphone
+            else:
+                try:
+                    self.microphone = sr.Microphone()
+                except OSError:
+                    logger.warning("No microphone found. Agent cannot hear commands.")
+                    self.microphone = None
+
         except OSError:
             logger.warning("No microphone found. Agent cannot hear commands.")
             self.microphone = None
