@@ -13,13 +13,10 @@ class CursorEngine(BaseCursorEngine):
         self.audio_player = audio_player
         self.running = False
 
-        # Disable failsafe to prevent edge-case crashes
         pyautogui.FAILSAFE = False
 
         self.screen_w, self.screen_h = pyautogui.size()
 
-        # 1 Euro Filter for advanced jitter-free smoothing
-        # Lowering min_cutoff drastically slows down the cursor at low speeds, fixing the "too fast" issue directly
         self.filter_x = OneEuroFilter(min_cutoff=0.001, beta=0.8)
         self.filter_y = OneEuroFilter(min_cutoff=0.001, beta=0.8)
 
@@ -27,10 +24,6 @@ class CursorEngine(BaseCursorEngine):
         self.last_raw_y = None
         self.deadzone_velocity = self.config.get("DEADZONE_VELOCITY", 0.003)
 
-        # Magnetic target integration
-        self.magnetic_pull = (0, 0)
-
-        # Active Zone Multiplier Configuration
         self.active_zone_x_center = self.config.get("ACTIVE_ZONE_X_CENTER", 0.5)
         self.active_zone_y_center = self.config.get("ACTIVE_ZONE_Y_CENTER", 0.6)
         self.active_zone_width = self.config.get("ACTIVE_ZONE_WIDTH", 0.18)
@@ -47,14 +40,9 @@ class CursorEngine(BaseCursorEngine):
         self.running = False
 
     def _normalize_to_active_zone(self, val, center, size):
-        # Calculate min and max bounds for the active zone
         min_bound = center - (size / 2)
         max_bound = center + (size / 2)
-
-        # Clamp the value to the active zone bounds
         val_clamped = max(min_bound, min(val, max_bound))
-
-        # Normalize to [0, 1] within the active zone
         normalized = (val_clamped - min_bound) / size
         return normalized
 
@@ -63,29 +51,27 @@ class CursorEngine(BaseCursorEngine):
 
         while self.running:
             try:
-                # Use a small timeout so we can periodically check self.running
                 payload = self.data_queue.get(timeout=0.1)
 
-                # Pause cursor tracking if dictation is active
                 if self.shared_state.get("dictation_active", False):
+                    continue
+
+                if self.shared_state.get("continuous_scroll_active"):
                     continue
 
                 is_locked = payload.get('is_locked', False)
 
-                # Handle precision mode via lock state (dragging removed per user request)
                 if is_locked and not self.was_locked:
-                    # Just entered lock state, trigger audio feedback
                     if self.audio_player:
                         self.audio_player.play('lock_engage')
                     self.was_locked = True
                 elif not is_locked and self.was_locked:
-                    # Just exited lock state
                     if self.audio_player:
                         self.audio_player.play('lock_release')
                     self.was_locked = False
 
                 nose_tip = payload['nose_tip']
-                timestamp = payload['timestamp'] / 1000.0 # seconds for the filter
+                timestamp = payload['timestamp'] / 1000.0
 
                 raw_x = nose_tip['x']
                 raw_y = nose_tip['y']
@@ -97,12 +83,9 @@ class CursorEngine(BaseCursorEngine):
                     dy = raw_y - self.last_raw_y
                     velocity = (dx**2 + dy**2)**0.5
 
-                    # Micro-deadzone: completely ignore jitter if trying to hold perfectly still
                     if velocity < self.deadzone_velocity:
                         skip_movement = True
 
-                # We use 1 Euro filter which inherently handles slowdowns nicely.
-                # But to add an 'ultra-precision' effect while locking, we can dynamically adjust the beta.
                 lock_progress = payload.get('lock_progress', 0.0)
                 if lock_progress > 0.0 or is_locked:
                      self.filter_x.beta = 0.01
@@ -117,28 +100,32 @@ class CursorEngine(BaseCursorEngine):
                 self.last_raw_x = raw_x
                 self.last_raw_y = raw_y
 
-                # Apply Active Zone scaling (invert X because webcam is mirrored)
+                # Check for instant snap target from Magnetism
+                snap_target = self.shared_state.get("magnet_snap_target")
+                if snap_target:
+                    # Bypassing filter completely for instant zero-latency snap
+                    try:
+                        pyautogui.moveTo(int(snap_target[0]), int(snap_target[1]))
+                        # Feed the target into the filter so it doesn't jump wildly when releasing
+                        self.filter_x(snap_target[0], timestamp)
+                        self.filter_y(snap_target[1], timestamp)
+                    except Exception:
+                        pass
+                    continue # Skip normal tracking this frame
+
                 scaled_x = self._normalize_to_active_zone(1.0 - raw_x, self.active_zone_x_center, self.active_zone_width)
                 scaled_y = self._normalize_to_active_zone(raw_y, self.active_zone_y_center, self.active_zone_height)
 
-                # Map to screen coordinates
                 target_x = scaled_x * self.screen_w
                 target_y = scaled_y * self.screen_h
 
-                # Add Magnetic Pull (from predictive magnetism thread)
-                mx, my = self.magnetic_pull
-                target_x += mx
-                target_y += my
-
-                # Apply 1 Euro Filter (dynamically handles slow jitter vs fast tracking)
                 filtered_x = self.filter_x(target_x, timestamp)
                 filtered_y = self.filter_y(target_y, timestamp)
 
-                # Move physical mouse
                 try:
                     pyautogui.moveTo(int(filtered_x), int(filtered_y))
                 except Exception as e:
-                    print(f"Failed to move mouse: {e}")
+                    pass
 
             except queue.Empty:
                 continue

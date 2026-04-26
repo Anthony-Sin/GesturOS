@@ -9,19 +9,24 @@ class VoiceTranscriber(BaseVoiceEngine):
         self.shared_state = shared_state
         self.audio_player = audio_player
         self.recognizer = sr.Recognizer()
-        self.microphone = sr.Microphone()
+
+        try:
+            self.microphone = sr.Microphone()
+        except Exception:
+            self.microphone = None
+            print("No mic found for transcriber.")
+
         self.running = False
 
-        # Configure recognizer for better responsiveness
-        self.recognizer.dynamic_energy_threshold = True
-        self.recognizer.energy_threshold = 300 # Lower threshold to catch quieter speech
-        self.recognizer.pause_threshold = 0.8  # Shorter pause to end phrase quickly
+        if self.microphone:
+            self.recognizer.dynamic_energy_threshold = True
+            self.recognizer.energy_threshold = 300
+            self.recognizer.pause_threshold = 0.8
 
-        # Adjust for ambient noise on startup
-        with self.microphone as source:
-            print("Adjusting microphone for ambient noise...")
-            self.recognizer.adjust_for_ambient_noise(source, duration=2)
-            print(f"Microphone ready. Energy threshold: {self.recognizer.energy_threshold}")
+            with self.microphone as source:
+                print("Adjusting microphone for ambient noise...")
+                self.recognizer.adjust_for_ambient_noise(source, duration=2)
+                print(f"Microphone ready. Energy threshold: {self.recognizer.energy_threshold}")
 
     def start(self):
         self.running = True
@@ -34,25 +39,32 @@ class VoiceTranscriber(BaseVoiceEngine):
         self.running = False
 
     def _run_loop(self):
-        # A list of phonetic variations to handle accents and misinterpretations
+        if not self.microphone:
+            return
+
         wake_words = [
             "transcribe me", "transcript me", "transcribe ne",
             "subscribe me", "transcribe", "start dictation"
         ]
 
+        cancel_words = ["stop", "cancel", "abort"]
+
         while self.running:
             try:
                 self.shared_state["voice_status"] = "Listening for 'transcribe me'..."
                 with self.microphone as source:
-                    # Listen without strict timeout so we don't abort mid-speech
                     audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=10)
 
                 self.shared_state["voice_status"] = "Processing..."
-                # Use Google Web Speech API (free, doesn't require API key for light usage)
                 text = self.recognizer.recognize_google(audio).lower()
                 print(f"[Voice Heard]: {text}")
 
-                # Check for trigger phrase using fuzzy matching / phonetic variations
+                # Check for cancellation of agent action
+                if any(word in text for word in cancel_words):
+                    print("--> Cancel voice command detected!")
+                    self.shared_state["cancel_action"] = True
+
+                # Check for trigger phrase
                 if any(word in text for word in wake_words):
                     print("--> Trigger activated! Entering continuous dictation mode...")
                     self._dictate()
@@ -60,19 +72,15 @@ class VoiceTranscriber(BaseVoiceEngine):
                     self._handle_keyboard_command(text)
 
             except sr.WaitTimeoutError:
-                # No speech detected within timeout, just continue loop
                 pass
             except sr.UnknownValueError:
-                # Speech was unintelligible
                 pass
             except sr.RequestError as e:
                 print(f"Could not request results from Speech Recognition service; {e}")
             except Exception as e:
-                # Catch-all for unexpected errors (e.g. mic disconnect)
                 print(f"Voice Transcriber error: {e}")
 
     def _dictate(self):
-        # We are now in dictation mode.
         self.shared_state["dictation_active"] = True
         if self.audio_player:
             self.audio_player.play('dictation_start')
@@ -84,17 +92,14 @@ class VoiceTranscriber(BaseVoiceEngine):
         while self.running and self.shared_state["dictation_active"]:
             try:
                 with self.microphone as source:
-                    # Listen continuously until silence
                     audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=15)
 
                 text = self.recognizer.recognize_google(audio).lower()
                 print(f"Dictated Chunk: {text}")
 
-                # Check if any exit word is in the text
                 exit_found = False
                 for e_word in exit_words:
                     if e_word in text:
-                        # Write everything before the exit phrase
                         final_text = text.replace(e_word, "").strip()
                         if final_text:
                             pyautogui.write(final_text + " ", interval=0.01)
@@ -109,12 +114,11 @@ class VoiceTranscriber(BaseVoiceEngine):
                 if exit_found:
                     break
                 else:
-                    # Write the chunk immediately
                     pyautogui.write(text + " ", interval=0.01)
                     self.shared_state["voice_status"] = f"TYPED: {text[:15]}..."
 
             except sr.WaitTimeoutError:
-                pass # Just keep listening if they are silent
+                pass
             except sr.UnknownValueError:
                 pass
             except sr.RequestError as e:
@@ -130,7 +134,6 @@ class VoiceTranscriber(BaseVoiceEngine):
         print(f"--> Keyboard command detected: press '{key}'")
         self.shared_state["voice_status"] = f"Pressed: {key}"
 
-        # Mapping spoken words to pyautogui keys
         key_map = {
             "enter": "enter",
             "return": "enter",

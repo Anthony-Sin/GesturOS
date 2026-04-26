@@ -22,10 +22,8 @@ class UIOverlay(BaseUIEngine):
 
         self.root.title("AccessiBot UI")
 
-        # Configuration & Styling (Cyberpunk aesthetic as requested)
-        # Using a fixed size as requested that looks proportional (e.g. 300 width)
+        # Configuration & Styling
         self.window_width = 300
-        # The height is determined dynamically by the components to match the layout
         self.cam_width = 280
         self.cam_height = 210
 
@@ -54,15 +52,29 @@ class UIOverlay(BaseUIEngine):
         self.lbl_currently_doing.pack(side=tk.LEFT)
 
         # Yellow separator line
-        tk.Frame(self.main_frame, bg=self.border_color, height=1).pack(fill=tk.X, padx=5, pady=5)
+        tk.Frame(self.main_frame, bg=self.border_color, height=2).pack(fill=tk.X)
 
         # --- Middle Section: Abilities / Info Squares ---
-        self.info_frame = tk.Frame(self.main_frame, bg=self.bg_color)
-        self.info_frame.pack(fill=tk.X, padx=10, pady=5)
+        self.middle_frame = tk.Frame(self.main_frame, bg=self.bg_color)
+        self.middle_frame.pack(fill=tk.X)
 
-        def create_info_row(parent, text):
+        # Left Column for Text
+        self.left_col = tk.Frame(self.middle_frame, bg=self.bg_color)
+        self.left_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Vertical separator
+        self.vert_sep = tk.Frame(self.middle_frame, bg=self.border_color, width=3)
+        self.vert_sep.pack(side=tk.LEFT, fill=tk.Y)
+
+        # Right Column (Empty to match reference image)
+        self.right_col = tk.Frame(self.middle_frame, bg=self.bg_color)
+        self.right_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Force a minimum width on right col
+        self.right_col.columnconfigure(0, minsize=80)
+
+        def create_info_row(parent, text, is_last=False):
             row = tk.Frame(parent, bg=self.bg_color)
-            row.pack(fill=tk.X, pady=2)
+            row.pack(fill=tk.X, pady=8, padx=5)
             # Red square
             canvas = tk.Canvas(row, width=10, height=10, bg=self.bg_color, highlightthickness=0)
             canvas.pack(side=tk.LEFT, padx=(0, 5))
@@ -70,27 +82,116 @@ class UIOverlay(BaseUIEngine):
             # Yellow text
             tk.Label(row, text=text, bg=self.bg_color, fg=self.yellow_text, font=("Courier", 9, "italic", "bold")).pack(side=tk.LEFT)
 
-        create_info_row(self.info_frame, "PREDICTIVE MAGNETISM: SNAP")
-        create_info_row(self.info_frame, "ELEVENLABS: TTS READY")
-        create_info_row(self.info_frame, "AUTONOMOUS AI: ACTIVE")
+            if not is_last:
+                # Add horizontal separator inside the columns
+                tk.Frame(parent, bg=self.border_color, height=1).pack(fill=tk.X)
+
+        create_info_row(self.left_col, "PREDICTIVE MAGNETISM: SNAP")
+        create_info_row(self.left_col, "ELEVENLABS: TTS READY")
+        create_info_row(self.left_col, "SCANNING BIO-SIGNALS...", is_last=True)
+
+        # Add horizontal separators in right column to align
+        tk.Frame(self.right_col, bg=self.bg_color, height=27).pack()
+        tk.Frame(self.right_col, bg=self.border_color, height=1).pack(fill=tk.X)
+        tk.Frame(self.right_col, bg=self.bg_color, height=27).pack()
+        tk.Frame(self.right_col, bg=self.border_color, height=1).pack(fill=tk.X)
+
+        # Also there's a thick yellow line that crosses the ENTIRE middle frame between 2nd and 3rd row, let's just make the horizontal separators span both.
+
+        # Let's rebuild middle section closer to image. Image has:
+        # | Left Column                    | Right Column |
+        # | [ ] PREDICTIVE MAGNETISM       |              |
+        # | ------------------------------ | ------------ |
+        # | [ ] ELEVENLABS                 |              |
+        # =================================================   <- Thick line across everything
+        # | [ ] SCANNING BIO-SIGNALS       |              |
+
+        # Let's fix that layout
+
+        # Re-doing middle frame
+        self.middle_frame.destroy()
+
+        self.middle_frame = tk.Frame(self.main_frame, bg=self.bg_color)
+        self.middle_frame.pack(fill=tk.X)
+
+        # Top half of middle (Rows 1 and 2)
+        top_half = tk.Frame(self.middle_frame, bg=self.bg_color)
+        top_half.pack(fill=tk.X)
+
+        th_left = tk.Frame(top_half, bg=self.bg_color)
+        th_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        tk.Frame(top_half, bg=self.border_color, width=3).pack(side=tk.LEFT, fill=tk.Y)
+        th_right = tk.Frame(top_half, bg=self.bg_color, width=80)
+        th_right.pack(side=tk.LEFT, fill=tk.BOTH)
+
+        create_info_row(th_left, "PREDICTIVE MAGNETISM: SNAP", is_last=False)
+        create_info_row(th_left, "ELEVENLABS: TTS READY", is_last=True)
+        # Manually add horizontal lines in th_right to align
+        tk.Frame(th_right, bg=self.bg_color, height=33).pack()
+        tk.Frame(th_right, bg=self.border_color, height=1).pack(fill=tk.X)
+
+        # Thick cross line
+        tk.Frame(self.middle_frame, bg=self.border_color, height=3).pack(fill=tk.X)
+
+        # Bottom half of middle (Row 3)
+        bot_half = tk.Frame(self.middle_frame, bg=self.bg_color)
+        bot_half.pack(fill=tk.X)
+        bh_left = tk.Frame(bot_half, bg=self.bg_color)
+        bh_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        tk.Frame(bot_half, bg=self.border_color, width=3).pack(side=tk.LEFT, fill=tk.Y)
+        bh_right = tk.Frame(bot_half, bg=self.bg_color, width=80)
+        bh_right.pack(side=tk.LEFT, fill=tk.BOTH)
+
+        create_info_row(bh_left, "SCANNING BIO-SIGNALS...", is_last=True)
 
         # Yellow separator line
-        tk.Frame(self.main_frame, bg=self.border_color, height=1).pack(fill=tk.X, padx=5, pady=5)
+        tk.Frame(self.main_frame, bg=self.border_color, height=3).pack(fill=tk.X)
 
         # --- Bottom Section: Webcam Feed ---
         self.cam_frame = tk.Frame(self.main_frame, bg=self.bg_color, width=self.cam_width, height=self.cam_height)
-        self.cam_frame.pack(pady=(0, 10), padx=10)
+        self.cam_frame.pack(pady=10, padx=10)
 
         self.canvas = tk.Canvas(self.cam_frame, width=self.cam_width, height=self.cam_height, bg=self.bg_color, highlightthickness=0)
         self.canvas.pack()
 
         self.image_on_canvas = None
 
+        # --- Fullscreen Transparent Overlay for Targeting ---
+        self.targeting_overlay = tk.Toplevel(self.root)
+        self.targeting_overlay.title("Targeting Overlay")
+        self.targeting_overlay.attributes('-fullscreen', True)
+        self.targeting_overlay.attributes('-topmost', True)
+        # Use a specific color to be fully transparent
+        self.trans_color = '#000001'
+        self.targeting_overlay.attributes('-transparentcolor', self.trans_color)
+        self.targeting_overlay.configure(bg=self.trans_color)
+        self.targeting_overlay.overrideredirect(True)
+
+        # Make click-through (Windows specific hack, but works nicely)
+        # If not on Windows, X11 requires specific shapes, but we will ignore clicks anyway since no buttons.
+        try:
+            # Try Windows specific click-through
+            import ctypes
+            from ctypes import wintypes
+            hwnd = self.targeting_overlay.winfo_id()
+            # GWL_EXSTYLE = -20, WS_EX_LAYERED = 0x00080000, WS_EX_TRANSPARENT = 0x00000020
+            # Let's set it if possible
+            ctypes.windll.user32.SetWindowLongW(hwnd, -20, ctypes.windll.user32.GetWindowLongW(hwnd, -20) | 0x00080000 | 0x00000020)
+        except Exception:
+            pass
+
+        self.targeting_canvas = tk.Canvas(self.targeting_overlay, bg=self.trans_color, highlightthickness=0)
+        self.targeting_canvas.pack(fill=tk.BOTH, expand=True)
+
         # State tracking for UI
         self.fps_queue = collections.deque(maxlen=30)
         self.banner_message = ""
         self.banner_start_time = 0
         self.last_voice_status = ""
+
+        # Rect references
+        self.magnet_rect_id = None
+        self.agent_rect_id = None
 
         # Update geometry and position after components are built
         self.root.update_idletasks()
@@ -115,6 +216,29 @@ class UIOverlay(BaseUIEngine):
 
             current_time = time.time()
             self.fps_queue.append(current_time)
+
+            # --- Draw Targeting Boxes ---
+            magnet_bbox = self.shared_state.get("magnet_target_bbox")
+            if magnet_bbox:
+                if self.magnet_rect_id:
+                    self.targeting_canvas.coords(self.magnet_rect_id, magnet_bbox[0], magnet_bbox[1], magnet_bbox[0]+magnet_bbox[2], magnet_bbox[1]+magnet_bbox[3])
+                else:
+                    self.magnet_rect_id = self.targeting_canvas.create_rectangle(magnet_bbox[0], magnet_bbox[1], magnet_bbox[0]+magnet_bbox[2], magnet_bbox[1]+magnet_bbox[3], outline="#00FF00", width=3)
+            else:
+                if self.magnet_rect_id:
+                    self.targeting_canvas.delete(self.magnet_rect_id)
+                    self.magnet_rect_id = None
+
+            agent_bbox = self.shared_state.get("agent_target_bbox")
+            if agent_bbox:
+                if self.agent_rect_id:
+                    self.targeting_canvas.coords(self.agent_rect_id, agent_bbox[0], agent_bbox[1], agent_bbox[0]+agent_bbox[2], agent_bbox[1]+agent_bbox[3])
+                else:
+                    self.agent_rect_id = self.targeting_canvas.create_rectangle(agent_bbox[0], agent_bbox[1], agent_bbox[0]+agent_bbox[2], agent_bbox[1]+agent_bbox[3], outline="#FF0000", width=4)
+            else:
+                if self.agent_rect_id:
+                    self.targeting_canvas.delete(self.agent_rect_id)
+                    self.agent_rect_id = None
 
             if payload:
                 frame = payload.get('frame')
@@ -182,6 +306,19 @@ class UIOverlay(BaseUIEngine):
         # Bottom Right
         cv2.line(frame, (self.cam_width - pad, self.cam_height - pad), (self.cam_width - pad - c_len, self.cam_height - pad), (255, 255, 0), c_thick)
         cv2.line(frame, (self.cam_width - pad, self.cam_height - pad), (self.cam_width - pad, self.cam_height - pad - c_len), (255, 255, 0), c_thick)
+
+        # Draw ACCESSIBOT_LIVE glowing cyan text in the center-top
+        text = "ACCESSIBOT_LIVE"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        scale = 0.4
+        thickness = 1
+        (text_width, text_height), _ = cv2.getTextSize(text, font, scale, thickness)
+        text_x = (self.cam_width - text_width) // 2
+        text_y = pad + 15
+
+        # Glow effect
+        cv2.putText(frame, text, (text_x, text_y), font, scale, (0, 100, 100), thickness + 2)
+        cv2.putText(frame, text, (text_x, text_y), font, scale, (0, 255, 255), thickness)
 
         # Crosshair, Nose
         nose_tip = payload.get('nose_tip')
