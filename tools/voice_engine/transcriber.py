@@ -1,7 +1,10 @@
 import speech_recognition as sr
 import threading
 import pyautogui
+import logging
 from tools.interfaces import BaseVoiceEngine
+
+logger = logging.getLogger(__name__)
 
 class VoiceTranscriber(BaseVoiceEngine):
     def __init__(self, config: dict, shared_state: dict, audio_player):
@@ -14,7 +17,7 @@ class VoiceTranscriber(BaseVoiceEngine):
             self.microphone = sr.Microphone()
         except Exception:
             self.microphone = None
-            print("No mic found for transcriber.")
+            logger.warning("No mic found for transcriber.")
 
         self.running = False
 
@@ -24,15 +27,15 @@ class VoiceTranscriber(BaseVoiceEngine):
             self.recognizer.pause_threshold = 0.8
 
             with self.microphone as source:
-                print("Adjusting microphone for ambient noise...")
+                logger.info("Adjusting microphone for ambient noise...")
                 self.recognizer.adjust_for_ambient_noise(source, duration=2)
-                print(f"Microphone ready. Energy threshold: {self.recognizer.energy_threshold}")
+                logger.info(f"Microphone ready. Energy threshold: {self.recognizer.energy_threshold}")
 
     def start(self):
         self.running = True
         thread = threading.Thread(target=self._run_loop, daemon=True)
         thread.start()
-        print("Voice Transcriber started. Listening for 'transcript now'...")
+        logger.info("Voice Transcriber started. Listening for 'transcript now'...")
         return thread
 
     def stop(self):
@@ -58,18 +61,21 @@ class VoiceTranscriber(BaseVoiceEngine):
 
                 self.shared_state["voice_status"] = "Processing..."
                 text = self.recognizer.recognize_google(audio).lower()
-                print(f"[Voice Heard]: {text}")
+                logger.info(f"[Voice Heard]: {text}")
 
                 # Check for cancellation of agent action
                 if any(word in text for word in cancel_words):
-                    print("--> Cancel voice command detected!")
+                    logger.info("--> Cancel voice command detected!")
                     self.shared_state["cancel_action"] = True
+                    self.shared_state["voice_commands"] = self.shared_state.get("voice_commands", 0) + 1
 
                 # Check for trigger phrase
                 if any(word in text for word in wake_words):
-                    print("--> Trigger activated! Entering continuous dictation mode...")
+                    logger.info("--> Trigger activated! Entering continuous dictation mode...")
+                    self.shared_state["voice_commands"] = self.shared_state.get("voice_commands", 0) + 1
                     self._dictate()
                 elif text.startswith("press "):
+                    self.shared_state["voice_commands"] = self.shared_state.get("voice_commands", 0) + 1
                     self._handle_keyboard_command(text)
 
             except sr.WaitTimeoutError:
@@ -77,7 +83,7 @@ class VoiceTranscriber(BaseVoiceEngine):
             except sr.UnknownValueError:
                 pass
             except sr.RequestError as e:
-                print(f"Could not request results from Speech Recognition service; {e}")
+                logger.error(f"Could not request results from Speech Recognition service; {e}")
             except Exception as e:
                 pass
 
@@ -85,7 +91,7 @@ class VoiceTranscriber(BaseVoiceEngine):
         self.shared_state["dictation_active"] = True
         if self.audio_player:
             self.audio_player.play('dictation_start')
-        print("Dictation mode active. Tracking paused. Say 'transcribe done' to exit.")
+        logger.info("Dictation mode active. Tracking paused. Say 'transcribe done' to exit.")
         self.shared_state["voice_status"] = "DICTATING (Say 'transcribe done' to stop)"
 
         exit_words = ["transcribe done", "transcript done", "stop dictation", "stop transcribing"]
@@ -96,7 +102,7 @@ class VoiceTranscriber(BaseVoiceEngine):
                     audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=15)
 
                 text = self.recognizer.recognize_google(audio).lower()
-                print(f"Dictated Chunk: {text}")
+                logger.info(f"Dictated Chunk: {text}")
 
                 exit_found = False
                 for e_word in exit_words:
@@ -105,7 +111,7 @@ class VoiceTranscriber(BaseVoiceEngine):
                         if final_text:
                             pyautogui.write(final_text + " ", interval=0.01)
 
-                        print("--> Exit phrase detected. Ending dictation...")
+                        logger.info("--> Exit phrase detected. Ending dictation...")
                         self.shared_state["dictation_active"] = False
                         if self.audio_player:
                             self.audio_player.play('dictation_stop')
@@ -123,7 +129,7 @@ class VoiceTranscriber(BaseVoiceEngine):
             except sr.UnknownValueError:
                 pass
             except sr.RequestError as e:
-                print(f"Service error during dictation: {e}")
+                logger.error(f"Service error during dictation: {e}")
                 self.shared_state["dictation_active"] = False
                 break
 
@@ -132,7 +138,7 @@ class VoiceTranscriber(BaseVoiceEngine):
 
     def _handle_keyboard_command(self, text):
         key = text.replace("press ", "").strip()
-        print(f"--> Keyboard command detected: press '{key}'")
+        logger.info(f"--> Keyboard command detected: press '{key}'")
         self.shared_state["voice_status"] = f"Pressed: {key}"
 
         key_map = {
@@ -162,4 +168,4 @@ class VoiceTranscriber(BaseVoiceEngine):
         try:
             pyautogui.press(target_key)
         except Exception as e:
-            print(f"Could not press key '{target_key}': {e}")
+            logger.error(f"Could not press key '{target_key}': {e}")

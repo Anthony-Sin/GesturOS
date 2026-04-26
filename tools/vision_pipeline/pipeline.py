@@ -6,19 +6,22 @@ import time
 import queue
 import urllib.request
 import os
+import logging
 
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from tools.interfaces import BaseVisionEngine
+
+logger = logging.getLogger(__name__)
 
 MODEL_PATH = 'face_landmarker.task'
 MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
 
 def download_model_if_missing():
     if not os.path.exists(MODEL_PATH):
-        print("Downloading Face Landmarker model...")
+        logger.info("Downloading Face Landmarker model...")
         urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
-        print("Download complete.")
+        logger.info("Download complete.")
 
 def rotation_matrix_to_angles(rotation_matrix):
     """
@@ -80,17 +83,17 @@ class VisionPipeline(BaseVisionEngine):
         cap = cv2.VideoCapture(0)
 
         if not cap.isOpened():
-            print("Warning: Could not open video capture. Stopping vision pipeline.")
+            logger.warning("Could not open video capture. Stopping vision pipeline.")
             self.running = False
             return
 
-        print("Vision pipeline started.")
+        logger.info("Vision pipeline started.")
         while self.running:
             start_time = time.time()
 
             success, frame = cap.read()
             if not success:
-                print("Ignoring empty camera frame.")
+                logger.debug("Ignoring empty camera frame.")
                 continue
 
             timestamp_ms = int(time.time() * 1000)
@@ -171,13 +174,13 @@ class VisionPipeline(BaseVisionEngine):
 
                             if elapsed >= self.lock_duration_threshold:
                                 self.is_locked = True
-                                print("Pipeline: Interface LOCKED.")
+                                logger.info("Pipeline: Interface LOCKED.")
                                 lock_progress = 1.0
                     else:
                         lock_progress = 1.0
                         if distance > self.breakout_threshold:
                             self.is_locked = False
-                            print("Pipeline: Interface UNLOCKED.")
+                            logger.info("Pipeline: Interface UNLOCKED.")
                             self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
                             self.anchor_start_time = current_time
                             lock_progress = 0.0
@@ -208,7 +211,7 @@ class VisionPipeline(BaseVisionEngine):
 
         cap.release()
         self.detector.close()
-        print("Vision pipeline stopped.")
+        logger.info("Vision pipeline stopped.")
 
     def stop(self):
         self.running = False
