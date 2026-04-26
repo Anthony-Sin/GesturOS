@@ -18,7 +18,6 @@ from google import genai
 from google.genai import types
 from google.genai.types import Content, Part
 from tools.interfaces import BaseBlindAgent
-from tools.agent_engine.intent_router import IntentRouter
 
 load_dotenv()
 
@@ -53,7 +52,6 @@ class GeminiDesktopAgent(BaseBlindAgent):
 
         self.running = False
         self.conversation_history = []
-        self.intent_router = IntentRouter(self)
 
     def speak(self, text):
         if self.audio_player:
@@ -89,6 +87,7 @@ class GeminiDesktopAgent(BaseBlindAgent):
         img.save(byte_stream, format='PNG')
         return byte_stream.getvalue()
 
+
     def _run_loop(self):
         if not self.microphone:
             return
@@ -101,8 +100,10 @@ class GeminiDesktopAgent(BaseBlindAgent):
                 text = self.recognizer.recognize_google(audio).lower()
                 print(f"[Heard]: {text}")
 
+                # Strict keyword gateway
                 if "agent" in text:
-                    command = text.replace("agent", "").strip()
+                    # Strip wake word to get the actual command
+                    command = text.split("agent", 1)[-1].strip()
 
                     if len(command) > 2:
                         self._route_intent(command)
@@ -111,7 +112,11 @@ class GeminiDesktopAgent(BaseBlindAgent):
                         with self.microphone as source:
                             audio = self.recognizer.listen(source, timeout=5, phrase_time_limit=15)
                         command = self.recognizer.recognize_google(audio).lower()
-                        self._route_intent(command)
+                        if command:
+                            self._route_intent(command)
+                else:
+                    # Silently drop non-addressed speech
+                    pass
 
             except sr.WaitTimeoutError:
                 pass
@@ -122,63 +127,126 @@ class GeminiDesktopAgent(BaseBlindAgent):
             except Exception as e:
                 print(f"Agent Loop error: {e}")
 
-    def _route_intent(self, command):
-        print(f"[Intent Router] Processing: '{command}'")
 
-        if self.intent_router.process(command):
+    def _route_intent(self, command):
+        print(f"[Tier 2 Router] Processing: '{command}'")
+
+        if not self.client:
+            print("No Gemini client available.")
             return
 
-        if self.client:
-            flash_prompt = f"""
-You are a voice command translator. The user said: "{command}"
-If this command is a simple OS action (like scrolling, pressing a key, typing, going back), output ONLY literal Python code using the `pyautogui` library to execute it. Do not include markdown formatting, backticks, or explanations. Just the raw Python code.
-If the command requires seeing the screen to know where to click or what to interact with (e.g., "click the login button", "find my email", "open google chrome"), you MUST output exactly the word "FALLBACK" and nothing else.
+        flash_prompt = f"""
+You are the rapid-response router for an accessibility tool.
+Your job is to map the user's voice command to one of your available tools.
+Do not attempt to write code.
+- If a task requires complex visual navigation or multiple steps (e.g., clicking specific icons, finding text on screen), use `escalate_to_agent`.
+- Even though the user said the wake word 'Agent', if the rest of the command is just chatting or ambiguous, use `ignore_non_command_speech`.
+
+User command: "{command}"
 """
-            try:
-                flash_model = self.config.get("LLM_FLASH_MODEL", "gemini-1.5-flash")
-                response = self.client.models.generate_content(
-                    model=flash_model,
-                    contents=flash_prompt
+
+        flash_model = self.config.get("LLM_FLASH_MODEL", "gemini-1.5-flash")
+
+        # Define the tools
+        tool_shortcut = types.FunctionDeclaration(
+            name="execute_keyboard_shortcut",
+            description="Executes a keyboard shortcut.",
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "keys": types.Schema(
+                        type=types.Type.ARRAY,
+                        items=types.Schema(type=types.Type.STRING),
+                        description="A list of keys to press together (e.g. ['ctrl', 'c'], ['enter'], ['win', 'd'])"
+                    )
+                },
+                required=["keys"]
+            )
+        )
+
+        tool_type = types.FunctionDeclaration(
+            name="type_string",
+            description="Types out a string of text like a keyboard.",
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "text": types.Schema(
+                        type=types.Type.STRING,
+                        description="The text to type out."
+                    )
+                },
+                required=["text"]
+            )
+        )
+
+        tool_escalate = types.FunctionDeclaration(
+            name="escalate_to_agent",
+            description="Escalates the task to a complex visual autonomous agent.",
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "task_description": types.Schema(
+                        type=types.Type.STRING,
+                        description="A description of the complex task to perform."
+                    )
+                },
+                required=["task_description"]
+            )
+        )
+
+        tool_ignore = types.FunctionDeclaration(
+            name="ignore_non_command_speech",
+            description="Ignores speech that is not a clear command.",
+            parameters=types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "reason": types.Schema(
+                        type=types.Type.STRING,
+                        description="The reason for ignoring the speech."
+                    )
+                },
+                required=["reason"]
+            )
+        )
+
+        tool = types.Tool(function_declarations=[tool_shortcut, tool_type, tool_escalate, tool_ignore])
+
+        try:
+            response = self.client.models.generate_content(
+                model=flash_model,
+                contents=flash_prompt,
+                config=types.GenerateContentConfig(
+                    tools=[tool],
+                    temperature=0.0
                 )
-                output = response.text.strip()
+            )
 
-                if output != "FALLBACK" and "pyautogui." in output:
-                    print(f"[Intent Router] Attempting to securely execute Flash Code: {output}")
-                    try:
-                        tree = ast.parse(output)
-                        for node in tree.body:
-                            if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
-                                func = node.value.func
-                                if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == 'pyautogui':
-                                    method_name = func.attr
-                                    args = []
-                                    for arg in node.value.args:
-                                        if isinstance(arg, ast.Constant):
-                                            args.append(arg.value)
-                                        elif isinstance(arg, ast.Str):
-                                            args.append(arg.s)
-                                        elif isinstance(arg, ast.Num):
-                                            args.append(arg.n)
-                                        else:
-                                            raise ValueError("Unsupported argument type generated by LLM.")
+            # Check if it returned a tool call
+            if response.candidates and response.candidates[0].content.parts:
+                part = response.candidates[0].content.parts[0]
+                if part.function_call:
+                    func_name = part.function_call.name
+                    args = part.function_call.args
 
-                                    if hasattr(pyautogui, method_name):
-                                        print(f" -> Executing: pyautogui.{method_name}({args})")
-                                        getattr(pyautogui, method_name)(*args)
-                                    else:
-                                        print(f" -> Denied: {method_name} is not a valid pyautogui function.")
-                                else:
-                                     print(" -> Denied: Only pyautogui calls are allowed.")
-                        return
-                    except Exception as e:
-                        print(f"Failed to securely execute Flash code: {e}. Falling back.")
+                    if func_name == "execute_keyboard_shortcut":
+                        self._tool_execute_keyboard_shortcut(args["keys"])
+                    elif func_name == "type_string":
+                        self._tool_type_string(args["text"])
+                    elif func_name == "escalate_to_agent":
+                        self._tool_escalate_to_agent(args["task_description"])
+                    elif func_name == "ignore_non_command_speech":
+                        self._tool_ignore_non_command_speech(args["reason"])
+                    else:
+                        print(f"Unknown tool called by Flash: {func_name}")
                 else:
-                    print(f"[Intent Router] Flash returned FALLBACK for command: '{command}'")
-            except Exception as e:
-                print(f"Flash Routing Error: {e}. Falling back.")
+                    # Flash output raw text instead of a tool
+                    print(f"[Tier 2 Router] Warning: Flash ignored tools and output text: {part.text}")
+                    self._tool_ignore_non_command_speech("LLM returned raw text instead of tool call.")
+            else:
+                 print("[Tier 2 Router] Error: Empty response from Flash.")
 
-        print("[Intent Router] Routing to Full Gemini 2.5 Agent...")
-        self._handle_agent_loop(command)
+        except Exception as e:
+            print(f"Flash Routing Error: {e}")
 
     def _denormalize_x(self, x: int) -> int:
         return int(x / 1000 * self.screen_width)
@@ -357,3 +425,25 @@ If the command requires seeing the screen to know where to click or what to inte
         else:
              self.speak("Turn limit reached.")
              self.shared_state["currently_doing"] = "ERROR: TURN LIMIT REACHED"
+
+    # --- Local Tools (Verbs) ---
+    def _tool_execute_keyboard_shortcut(self, keys: list):
+        print(f"[Tool] Executing shortcut: {keys}")
+        try:
+            pyautogui.hotkey(*keys)
+        except Exception as e:
+            print(f"Shortcut error: {e}")
+
+    def _tool_type_string(self, text: str):
+        print(f"[Tool] Typing string: {text}")
+        try:
+            pyautogui.write(text, interval=0.01)
+        except Exception as e:
+            print(f"Typing error: {e}")
+
+    def _tool_escalate_to_agent(self, task_description: str):
+        print(f"[Tool] Escalating to Full Agent: {task_description}")
+        self._handle_agent_loop(task_description)
+
+    def _tool_ignore_non_command_speech(self, reason: str):
+        print(f"[Tool] Ignoring speech. Reason: {reason}")
