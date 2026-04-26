@@ -19,7 +19,7 @@ _pyaudio.PyAudio.terminate = lambda self: None
 # Setup global logger
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] [%(module)s] — %(message)s')
+formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] [%(module)s] - %(message)s')
 
 # Console handler
 console_handler = logging.StreamHandler()
@@ -51,8 +51,13 @@ def init_dependencies():
         "voice_status": "Listening for Wake Word...",
         "dictation_active": False,
         "agent_active": False,
-        "tracking_paused": False,
-        "currently_doing": "AWAITING COMMAND",
+        "tracking_paused": True,
+        "currently_doing": "PRESS START TO CALIBRATE",
+        "ui_ready": False,
+        "targeting_overlay_ready": False,
+        "calibration_allow_start": False,
+        "start_tracking_requested": False,
+        "request_quick_calibration": False,
         "clicks_saved": 0,
         "voice_commands": 0,
         "cursor_distance": 0,
@@ -73,7 +78,7 @@ def init_dependencies():
 def launch_app():
     logger.info("""
 =========================================================
-                 A C C E S S I B O T
+                   G E S T U R O S
          Hands-Free Controller & Assistive Agent
 =========================================================
  Booting systems...
@@ -120,7 +125,9 @@ def launch_app():
         agent.stop()
         if voice_transcriber:
             voice_transcriber.stop()
-        ui_overlay.stop()
+        # Qt timers/windows should be stopped from the main/UI thread only.
+        if threading.current_thread() is threading.main_thread():
+            ui_overlay.stop()
 
     def signal_handler(sig, frame):
         shutdown()
@@ -186,11 +193,11 @@ def launch_app():
 
 def main():
     try:
-        logger.info("AccessiBot starting up...")
+        logger.info("GesturOS starting up...")
         launch_app()
-        logger.info("AccessiBot shut down cleanly.")
+        logger.info("GesturOS shut down cleanly.")
     except Exception as e:
-        logger.exception(f"Unhandled exception in AccessiBot: {e}")
+        logger.exception(f"Unhandled exception in GesturOS: {e}")
         sys.exit(1)
 
 if __name__ == '__main__':

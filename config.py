@@ -1,6 +1,37 @@
 default_config = {
     # --- Vision Pipeline ---
     "TARGET_FPS": 30,
+    # Optional quick startup calibration for different seating/camera positions.
+    "ENABLE_QUICK_CALIBRATION": True,
+    "QUICK_CALIBRATION_DURATION_SECONDS": 1.2,
+    "QUICK_CALIBRATION_WAIT_FOR_UI_SECONDS": 5.0,
+    "QUICK_CALIBRATION_SUMMARY_SECONDS": 4.0,
+    "QUICK_CALIBRATION_MIN_SAMPLES": 12,
+    "QUICK_CALIBRATION_MAX_CENTER_SHIFT": 0.12,
+    "QUICK_CALIBRATION_MAX_SECONDS": 8.0,
+    "QUICK_CALIBRATION_TARGET_RADIUS_PX": 85,
+    "QUICK_CALIBRATION_DWELL_SAMPLES": 6,
+    "QUICK_CALIBRATION_EDGE_PADDING": 0.06,
+    "QUICK_CALIBRATION_ZONE_SCALE_X": 1.25,
+    "QUICK_CALIBRATION_ZONE_SCALE_Y": 1.20,
+    "QUICK_CALIBRATION_MIN_WIDTH": 0.13,
+    "QUICK_CALIBRATION_MIN_HEIGHT": 0.10,
+    "QUICK_CALIBRATION_MAX_WIDTH": 0.42,
+    "QUICK_CALIBRATION_MAX_HEIGHT": 0.34,
+    # Keep final center in a comfortable middle band to reduce edge bias.
+    "QUICK_CALIBRATION_CENTER_BLEND": 0.85,
+    "QUICK_CALIBRATION_DEFAULT_CENTER_BIAS": 0.28,
+    "QUICK_CALIBRATION_CENTER_MIN_X": 0.32,
+    "QUICK_CALIBRATION_CENTER_MAX_X": 0.68,
+    "QUICK_CALIBRATION_CENTER_MIN_Y": 0.30,
+    "QUICK_CALIBRATION_CENTER_MAX_Y": 0.70,
+    "QUICK_CALIBRATION_POINTS": [
+        (0.50, 0.52),
+        (0.30, 0.52),
+        (0.70, 0.52),
+        (0.50, 0.34),
+        (0.50, 0.70),
+    ],
     # Set to 0 to disable stale-frame reuse and keep overlay/cursor low-latency.
     "FRAME_DIFF_THRESHOLD": 0.0,
     # Safety cap if frame-diff reuse is re-enabled.
@@ -20,18 +51,30 @@ default_config = {
 
     # FURTHER REDUCED: Minimal physical head movement required.
     # Wider zones = slower movement. X intentionally slower per request.
-    "ACTIVE_ZONE_WIDTH": 0.11,
+    "ACTIVE_ZONE_WIDTH": 0.16,
     # Slightly taller zone to reduce vertical sensitivity and dead feeling.
-    "ACTIVE_ZONE_HEIGHT": 0.08,
+    "ACTIVE_ZONE_HEIGHT": 0.13,
 
     # HEAVILY REDUCED: Massive smoothing applied. Cursor will trail behind your head smoothly.
     "BASE_ALPHA": 0.03, 
     "PRECISION_ALPHA": 0.01,
     # OneEuro cursor filtering: tuned for responsiveness with controlled jitter.
-    "FILTER_MIN_CUTOFF": 1.2,
-    "FILTER_BETA_NORMAL": 0.08,
+    "FILTER_MIN_CUTOFF": 1.75,
+    "FILTER_BETA_NORMAL": 0.13,
     "FILTER_MIN_CUTOFF_LOCKED": 0.8,
     "FILTER_BETA_LOCKED": 0.02,
+    # Gradual sensitivity shaping: slower micro-movement around focus area.
+    "CURSOR_RESPONSE_EXPONENT_X": 2.25,
+    "CURSOR_RESPONSE_EXPONENT_Y": 2.45,
+    # Directional Y shaping: make downward movement easier while keeping top control stable.
+    "CURSOR_RESPONSE_EXPONENT_Y_UP": 2.45,
+    "CURSOR_RESPONSE_EXPONENT_Y_DOWN": 2.05,
+    "CURSOR_DOWNWARD_BOOST": 1.18,
+    "CURSOR_MICRO_GAIN": 0.22,
+    "CURSOR_MICRO_RADIUS": 0.46,
+    "CURSOR_PIXEL_DEADZONE": 1.6,
+    # Hard cap on per-frame movement to prevent jumpy cursor spikes.
+    "CURSOR_MAX_STEP_PX": 55.0,
 
     # Keeping deadzones high to prevent resting jitter.
     "VELOCITY_THRESHOLD": 0.005, 
@@ -63,6 +106,12 @@ default_config = {
     # --- AI Models ---
     "LLM_FLASH_MODEL": "gemini-2.5-flash-lite",
     "LLM_AGENT_MODEL": "gemini-2.5-computer-use-preview-10-2025",
+    # Browser automation backend for Computer Use actions.
+    "AGENT_BROWSER_BACKEND": "playwright",
+    "PLAYWRIGHT_USER_DATA_DIR": r"C:\Users\antho\AppData\Local\Microsoft\Edge\User Data",
+    "PLAYWRIGHT_BROWSER_CHANNEL": "msedge",
+    "PLAYWRIGHT_VIEWPORT_W": 1440,
+    "PLAYWRIGHT_VIEWPORT_H": 900,
     # --- LLM Cost / Safety Guardrails ---
     "LLM_ROUTER_MAX_OUTPUT_TOKENS": 96,
     "AGENT_MAX_OUTPUT_TOKENS": 256,
@@ -72,6 +121,11 @@ default_config = {
     "AGENT_MAX_HISTORY_ITEMS": 8,
     "AGENT_SCREENSHOT_MAX_W": 1280,
     "AGENT_SCREENSHOT_MAX_H": 800,
+    # Hard billing/loop safety caps.
+    "AGENT_MAX_API_CALLS_PER_TASK": 4,
+    "AGENT_MAX_RUNTIME_SECONDS": 70,
+    "AGENT_MIN_SECONDS_BETWEEN_RUNS": 10.0,
+    "AGENT_SESSION_RUN_LIMIT": 8,
 
     # --- Scrolling Settings ---
     "SCROLL_BROW_THRESHOLD": 0.4,

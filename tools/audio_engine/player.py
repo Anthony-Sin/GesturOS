@@ -8,6 +8,8 @@ import tempfile
 import threading
 import winsound
 import logging
+import re
+import wave
 
 import requests
 from dotenv import load_dotenv
@@ -157,6 +159,16 @@ class AudioPlayer:
                     'dictation_start': (523, 150),
                     'dictation_stop':  (659, 150),
                 }
+                self.judge_intro_text = (
+                    os.getenv("JUDGE_INTRO_TEXT")
+                    or (
+                        "This is GesturOS, a hands free computer control system using nose tracking, blink and brow gestures, "
+                        "voice commands, and a supervised AI web agent. Calibration is starting now. Move the blue marker into each "
+                        "red circle and hold briefly until it advances. Keep your head relaxed and centered."
+                    )
+                )
+                self.audio_cache_dir = os.path.join(os.getcwd(), "cache_audio")
+                self.judge_intro_path = os.path.join(self.audio_cache_dir, "judge_intro.wav")
 
                 AudioPlayer._initialized = True
                 print("Audio Engine initialized successfully.")
@@ -188,6 +200,62 @@ class AudioPlayer:
         print(f"[Audio Engine Says]: {text}")
         self.tts_queue.put(text)
 
+    def _synthesize_tts_wav_bytes(self, text: str):
+        if not self.elevenlabs_client:
+            return None
+        try:
+            audio_generator = self.elevenlabs_client.text_to_speech.convert(
+                voice_id="21m00Tcm4TlvDq8ikWAM",
+                output_format="mp3_44100_128",
+                text=text,
+                model_id="eleven_multilingual_v2"
+            )
+            audio_data = b""
+            for chunk in audio_generator:
+                if chunk:
+                    audio_data += chunk
+            if not audio_data:
+                return None
+
+            mime_type = str(getattr(self.elevenlabs_client, "last_mime_type", "audio/wav")).lower()
+            if "wav" in mime_type:
+                return audio_data
+            if "audio/l16" in mime_type or "pcm" in mime_type:
+                return self._pcm_to_wav_bytes(audio_data, mime_type)
+            return None
+        except Exception as e:
+            logger.warning(f"TTS clip synthesis failed: {e}")
+            return None
+
+    def ensure_judge_intro_clip(self) -> bool:
+        try:
+            if os.path.exists(self.judge_intro_path) and os.path.getsize(self.judge_intro_path) > 0:
+                return True
+            os.makedirs(self.audio_cache_dir, exist_ok=True)
+            wav_bytes = self._synthesize_tts_wav_bytes(self.judge_intro_text)
+            if not wav_bytes:
+                return False
+            with open(self.judge_intro_path, "wb") as out_file:
+                out_file.write(wav_bytes)
+            logger.info(f"Cached judge intro clip at: {self.judge_intro_path}")
+            return True
+        except Exception as e:
+            logger.warning(f"Could not cache judge intro clip: {e}")
+            return False
+
+    def play_judge_intro(self):
+        if self.ensure_judge_intro_clip():
+            print("[Audio Engine Says]: Playing cached judge intro.")
+            def _play_cached():
+                try:
+                    winsound.PlaySound(self.judge_intro_path, winsound.SND_FILENAME)
+                except Exception as e:
+                    logger.warning(f"Could not play cached judge intro: {e}")
+                    self.speak(self.judge_intro_text)
+            threading.Thread(target=_play_cached, daemon=True).start()
+            return
+        self.speak(self.judge_intro_text)
+
     def _tts_worker(self):
         while True:
             text = self.tts_queue.get()
@@ -213,10 +281,18 @@ class AudioPlayer:
 
                         if audio_data:
                             mime_type = str(getattr(self.elevenlabs_client, "last_mime_type", "audio/wav")).lower()
-                            suffix = ".wav" if "wav" in mime_type else ".bin"
+                            playable_bytes = audio_data
+                            suffix = ".wav"
+                            if "wav" in mime_type:
+                                suffix = ".wav"
+                            elif "audio/l16" in mime_type or "pcm" in mime_type:
+                                playable_bytes = self._pcm_to_wav_bytes(audio_data, mime_type)
+                                suffix = ".wav"
+                            else:
+                                suffix = ".bin"
 
                             with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
-                                f.write(audio_data)
+                                f.write(playable_bytes)
                                 tmp_path = f.name
 
                             try:
@@ -240,3 +316,38 @@ class AudioPlayer:
                     print(f"[Audio Engine Backup Print]: {text}")
             finally:
                 self.tts_queue.task_done()
+
+    def _pcm_to_wav_bytes(self, raw_pcm_bytes: bytes, mime_type: str) -> bytes:
+        sample_rate = 24000
+        channels = 1
+
+        rate_match = re.search(r"rate=(\d+)", mime_type or "", flags=re.IGNORECASE)
+        if rate_match:
+            try:
+                sample_rate = max(8000, int(rate_match.group(1)))
+            except Exception:
+                pass
+
+        channel_match = re.search(r"channels?=(\d+)", mime_type or "", flags=re.IGNORECASE)
+        if channel_match:
+            try:
+                channels = max(1, min(2, int(channel_match.group(1))))
+            except Exception:
+                pass
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            wav_path = tmp.name
+
+        try:
+            with wave.open(wav_path, "wb") as wav_file:
+                wav_file.setnchannels(channels)
+                wav_file.setsampwidth(2)  # 16-bit PCM
+                wav_file.setframerate(sample_rate)
+                wav_file.writeframes(raw_pcm_bytes)
+            with open(wav_path, "rb") as wav_in:
+                return wav_in.read()
+        finally:
+            try:
+                os.remove(wav_path)
+            except Exception:
+                pass

@@ -16,7 +16,7 @@ os.environ["QT_FONT_DPI"] = "96"
 os.environ["QT_DPI_ADJUSTMENT_POLICY"] = "AdjustDpi"
 
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame
+    QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QPushButton
 )
 from PyQt6.QtCore import Qt, QTimer, QPoint, QRect
 from PyQt6.QtGui import QImage, QPixmap, QFont, QColor, QPainter, QPen, QBrush, QPolygon
@@ -68,7 +68,10 @@ class TargetingOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         screen = QApplication.primaryScreen()
-        self.setGeometry(screen.geometry() if screen else QRect(0, 0, 1920, 1080))
+        if screen:
+            self.setGeometry(screen.virtualGeometry())
+        else:
+            self.setGeometry(QRect(0, 0, 1920, 1080))
         self.show()
         logger.debug("TargetingOverlay shown.")
 
@@ -77,14 +80,99 @@ class TargetingOverlay(QWidget):
         self._agent_bbox  = self.shared_state.get("agent_target_bbox")
         self.update()
 
+    def _draw_fullscreen_calibration(self, painter: QPainter):
+        target = self.shared_state.get("calibration_screen_target")
+        user = self.shared_state.get("calibration_screen_user")
+        step = int(self.shared_state.get("calibration_screen_step", 0) or 0)
+        steps = int(self.shared_state.get("calibration_screen_steps", 0) or 0)
+        progress = float(self.shared_state.get("calibration_screen_progress", 0.0) or 0.0)
+        message = str(self.shared_state.get("calibration_screen_message", "") or "")
+
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 120))
+
+        # Top panel with instructions.
+        panel_w = max(360, min(980, self.width() - 80))
+        panel_h = 58
+        panel_x = (self.width() - panel_w) // 2
+        panel_y = 26
+        painter.setPen(QPen(QColor(YELLOW), 2))
+        painter.setBrush(QBrush(QColor(12, 12, 12, 220)))
+        painter.drawRoundedRect(panel_x, panel_y, panel_w, panel_h, 10, 10)
+        painter.setFont(QFont("Courier", 10, QFont.Weight.Bold))
+        painter.setPen(QPen(QColor(YELLOW), 1))
+        headline = f"CALIBRATION {step}/{max(1, steps)}"
+        painter.drawText(panel_x + 14, panel_y + 24, headline)
+        painter.setPen(QPen(QColor(CYAN), 1))
+        painter.drawText(panel_x + 14, panel_y + 45, message[:120])
+
+        if target:
+            tx, ty = int(target[0]), int(target[1])
+            painter.setPen(QPen(QColor(RED), 4))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(QPoint(tx, ty), 54, 54)
+            painter.drawEllipse(QPoint(tx, ty), 26, 26)
+            painter.drawLine(tx - 74, ty, tx + 74, ty)
+            painter.drawLine(tx, ty - 74, tx, ty + 74)
+
+        if user:
+            ux, uy = int(user[0]), int(user[1])
+            painter.setPen(QPen(QColor(CYAN), 3))
+            painter.setBrush(QBrush(QColor(0, 220, 255, 80)))
+            painter.drawEllipse(QPoint(ux, uy), 24, 24)
+            if target:
+                painter.setPen(QPen(QColor(CYAN), 1))
+                painter.drawLine(ux, uy, tx, ty)
+
+        # Bottom progress bar
+        bar_w = min(760, self.width() - 120)
+        bar_x = (self.width() - bar_w) // 2
+        bar_y = self.height() - 42
+        painter.setPen(QPen(QColor(YELLOW), 1))
+        painter.setBrush(QBrush(QColor(30, 30, 30, 220)))
+        painter.drawRect(bar_x, bar_y, bar_w, 14)
+        fill_w = int(max(0.0, min(1.0, progress)) * bar_w)
+        painter.fillRect(bar_x, bar_y, fill_w, 14, QColor(255, 32, 32, 220))
+
+    def _draw_calibration_summary_overlay(self, painter: QPainter):
+        summary_text = str(self.shared_state.get("calibration_summary_text", "") or "")
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 96))
+
+        box_w = max(420, min(980, self.width() - 120))
+        box_h = 120
+        box_x = (self.width() - box_w) // 2
+        box_y = max(34, self.height() // 2 - box_h // 2)
+
+        painter.setPen(QPen(QColor(GREEN), 2))
+        painter.setBrush(QBrush(QColor(10, 16, 10, 220)))
+        painter.drawRoundedRect(box_x, box_y, box_w, box_h, 12, 12)
+
+        painter.setFont(QFont("Courier", 11, QFont.Weight.Bold))
+        painter.setPen(QPen(QColor(GREEN), 1))
+        painter.drawText(box_x + 16, box_y + 30, "CALIBRATION OVERVIEW")
+
+        painter.setFont(QFont("Courier", 10))
+        painter.setPen(QPen(QColor(CYAN), 1))
+        detail = summary_text[:220] if summary_text else "No summary data."
+        painter.drawText(box_x + 16, box_y + 60, detail)
+
+        painter.setPen(QPen(QColor(YELLOW), 1))
+        painter.drawText(box_x + 16, box_y + 90, "Neutral face should now map near the screen center.")
+
     def paintEvent(self, event):
-        if not self._magnet_bbox and not self._agent_bbox:
+        calibration_active = bool(self.shared_state.get("calibration_screen_active", False))
+        summary_active = bool(self.shared_state.get("calibration_summary_active", False))
+        if not self._magnet_bbox and not self._agent_bbox and not calibration_active and not summary_active:
             return
         try:
             painter = QPainter(self)
             if not painter.isActive():
                 return
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+            if calibration_active:
+                self._draw_fullscreen_calibration(painter)
+            elif summary_active:
+                self._draw_calibration_summary_overlay(painter)
             if self._magnet_bbox:
                 x, y, w, h = self._magnet_bbox
                 painter.setPen(QPen(QColor(GREEN), 2))
@@ -114,6 +202,15 @@ class CamCanvas(QLabel):
         self._banner_msg  = ""
         self._banner_t    = 0.0
         self.BANNER_DUR   = 2.5
+        self._calibration_active = False
+        self._calibration_progress = 0.0
+        self._calibration_remaining = 0.0
+        self._calibration_sample_count = 0
+        self._calibration_sample_target = 0
+        self._calibration_nose_xy = None
+        self._calibration_target_xy = (0.5, 0.5)
+        self._calibration_summary_active = False
+        self._calibration_summary_text = ""
 
     def set_frame(self, bgr_frame, nose_tip, landmarks=None, blendshapes=None):
         try:
@@ -132,6 +229,30 @@ class CamCanvas(QLabel):
     def trigger_banner(self, msg: str):
         self._banner_msg = msg
         self._banner_t   = time.time()
+
+    def set_calibration_state(
+        self,
+        active: bool,
+        progress: float = 0.0,
+        remaining: float = 0.0,
+        sample_count: int = 0,
+        sample_target: int = 0,
+        nose_xy=None,
+        target_xy=None,
+    ):
+        self._calibration_active = bool(active)
+        self._calibration_progress = max(0.0, min(1.0, float(progress or 0.0)))
+        self._calibration_remaining = max(0.0, float(remaining or 0.0))
+        self._calibration_sample_count = int(sample_count or 0)
+        self._calibration_sample_target = int(sample_target or 0)
+        self._calibration_nose_xy = nose_xy
+        self._calibration_target_xy = target_xy or (0.5, 0.5)
+        self.update()
+
+    def set_calibration_summary(self, active: bool, text: str = ""):
+        self._calibration_summary_active = bool(active)
+        self._calibration_summary_text = str(text or "")
+        self.update()
 
     def _lm_px(self, lm):
         # Camera frame is mirrored before display, so mirror x for overlays too.
@@ -179,6 +300,11 @@ class CamCanvas(QLabel):
                     QPoint(nx,   ny-4), QPoint(nx+4, ny),
                     QPoint(nx,   ny+4), QPoint(nx-4, ny),
                 ]))
+
+            if self._calibration_active:
+                self._draw_calibration_overlay(painter)
+            elif self._calibration_summary_active:
+                self._draw_calibration_summary(painter)
 
             self._draw_banner(painter)
             painter.end()
@@ -289,6 +415,65 @@ class CamCanvas(QLabel):
         painter.drawText(0, by, self.CAM_W, BH, Qt.AlignmentFlag.AlignCenter, self._banner_msg)
         painter.setOpacity(1.0)
 
+    def _draw_calibration_overlay(self, painter: QPainter):
+        tx_norm, ty_norm = self._calibration_target_xy if self._calibration_target_xy else (0.5, 0.5)
+        tx = int((1.0 - float(tx_norm)) * self.CAM_W)
+        ty = int(float(ty_norm) * self.CAM_H)
+
+        painter.setPen(QPen(QColor(YELLOW), 2))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawEllipse(QPoint(tx, ty), 18, 18)
+        painter.drawLine(tx - 24, ty, tx + 24, ty)
+        painter.drawLine(tx, ty - 24, tx, ty + 24)
+
+        if self._calibration_nose_xy:
+            nx = int((1.0 - float(self._calibration_nose_xy[0])) * self.CAM_W)
+            ny = int(float(self._calibration_nose_xy[1]) * self.CAM_H)
+            painter.setPen(QPen(QColor(CYAN), 2))
+            painter.setBrush(QBrush(QColor(CYAN)))
+            painter.drawEllipse(QPoint(nx, ny), 5, 5)
+            painter.setPen(QPen(QColor(CYAN), 1))
+            painter.drawLine(nx, ny, tx, ty)
+
+        # Top instruction box
+        painter.setOpacity(0.86)
+        painter.fillRect(8, 8, self.CAM_W - 16, 26, QColor(10, 10, 10))
+        painter.setOpacity(1.0)
+        painter.setPen(QPen(QColor(YELLOW), 1))
+        painter.drawRect(8, 8, self.CAM_W - 16, 26)
+        painter.setFont(QFont("Courier", 8, QFont.Weight.Bold))
+        txt = f"CALIBRATING {self._calibration_remaining:.1f}s  ({self._calibration_sample_count}/{max(1, self._calibration_sample_target)})"
+        painter.drawText(12, 26, txt)
+
+        # Bottom progress bar
+        bar_x = 10
+        bar_w = self.CAM_W - 20
+        bar_y = self.CAM_H - 14
+        painter.fillRect(bar_x, bar_y, bar_w, 8, QColor(30, 30, 30))
+        fill_w = int(bar_w * self._calibration_progress)
+        painter.fillRect(bar_x, bar_y, fill_w, 8, QColor(255, 255, 0))
+        painter.setPen(QPen(QColor(255, 255, 0), 1))
+        painter.drawRect(bar_x, bar_y, bar_w, 8)
+
+    def _draw_calibration_summary(self, painter: QPainter):
+        box_x = 8
+        box_y = self.CAM_H - 64
+        box_w = self.CAM_W - 16
+        box_h = 54
+        painter.setOpacity(0.88)
+        painter.fillRect(box_x, box_y, box_w, box_h, QColor(8, 8, 8))
+        painter.setOpacity(1.0)
+        painter.setPen(QPen(QColor(GREEN), 1))
+        painter.drawRect(box_x, box_y, box_w, box_h)
+        painter.setFont(QFont("Courier", 8, QFont.Weight.Bold))
+        painter.setPen(QPen(QColor(GREEN), 1))
+        painter.drawText(box_x + 6, box_y + 16, "CALIBRATION OVERVIEW")
+        painter.setPen(QPen(QColor(CYAN), 1))
+        detail = self._calibration_summary_text[:220] if self._calibration_summary_text else "No summary data."
+        painter.drawText(box_x + 6, box_y + 34, detail)
+        painter.setPen(QPen(QColor(YELLOW), 1))
+        painter.drawText(box_x + 6, box_y + 49, "Neutral face should map to screen center.")
+
 
 class UIOverlay(BaseUIEngine):
     STATUS_HOLD_SECS = 15.0
@@ -306,28 +491,36 @@ class UIOverlay(BaseUIEngine):
         self._lbl_status     = None
         self._lbl_listening  = None
         self._targeting      = None
+        self._btn_start      = None
+        self._btn_intro      = None
         self._last_voice_str = ""
         self._fps_dq         = collections.deque(maxlen=30)
         self._timer          = None
         self._last_status    = "AWAITING COMMAND"
         self._last_status_t  = 0.0
+        self._calibration_handshake_sent = False
 
     def start(self):
         logger.info("Starting UI Overlay...")
         try:
-            safe_argv = [sys.argv[0]] if sys.argv else ["accessibot"]
+            self.shared_state["ui_ready"] = False
+            self.shared_state["targeting_overlay_ready"] = False
+            self.shared_state["calibration_allow_start"] = False
+            self.shared_state["start_tracking_requested"] = False
+            safe_argv = [sys.argv[0]] if sys.argv else ["gesturos"]
             self._app = QApplication.instance() or QApplication(safe_argv)
-            self._app.setApplicationName("AccessiBot")
-            self._app.setOrganizationName("AccessiBot")
+            self._app.setApplicationName("GesturOS")
+            self._app.setOrganizationName("GesturOS")
             self._app.setQuitOnLastWindowClosed(False)
 
             self._build_ui()
+            self.shared_state["ui_ready"] = True
 
             self._timer = QTimer()
             self._timer.timeout.connect(self._update_frame)
             self._timer.start(30)
 
-            QTimer.singleShot(500, self._init_targeting_overlay)
+            QTimer.singleShot(0, self._init_targeting_overlay)
 
             logger.debug("Entering Qt event loop.")
             self._app.exec()
@@ -337,6 +530,10 @@ class UIOverlay(BaseUIEngine):
 
     def stop(self):
         try:
+            self.shared_state["ui_ready"] = False
+            self.shared_state["targeting_overlay_ready"] = False
+            self.shared_state["calibration_allow_start"] = False
+            self.shared_state["start_tracking_requested"] = False
             if self._timer:
                 self._timer.stop()
             if self._app:
@@ -347,14 +544,16 @@ class UIOverlay(BaseUIEngine):
     def _init_targeting_overlay(self):
         try:
             self._targeting = TargetingOverlay(self.shared_state)
+            self.shared_state["targeting_overlay_ready"] = True
             logger.info("TargetingOverlay initialized successfully.")
         except Exception as e:
             logger.error(f"Could not create TargetingOverlay: {e}", exc_info=True)
             self._targeting = None
+            self.shared_state["targeting_overlay_ready"] = False
 
     def _build_ui(self):
         win = QWidget()
-        win.setWindowTitle("AccessiBot")
+        win.setWindowTitle("GesturOS")
         win.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
@@ -374,7 +573,7 @@ class UIOverlay(BaseUIEngine):
         layout.setSpacing(4)
 
         # ── Header ────────────────────────────────────────────────────────
-        hdr = QLabel("⬡  A C C E S S I B O T")
+        hdr = QLabel("⬡  G E S T U R O S")
         hdr.setFont(QFont("Courier", 12, QFont.Weight.Bold))
         hdr.setStyleSheet(f"color: {RED}; border: none;")
         hdr.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -397,6 +596,11 @@ class UIOverlay(BaseUIEngine):
         self._lbl_listening.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._lbl_listening.setWordWrap(True)
         layout.addWidget(self._lbl_listening)
+
+        button_row = QHBoxLayout()
+        self._btn_start = self._make_button("START + CALIBRATE", GREEN, self._on_start_tracking_clicked)
+        button_row.addWidget(self._btn_start)
+        layout.addLayout(button_row)
 
         layout.addWidget(self._hline(YELLOW))
 
@@ -477,6 +681,56 @@ class UIOverlay(BaseUIEngine):
         h.addStretch()
         return row
 
+    def _make_button(self, text: str, border_color: str, click_handler):
+        btn = QPushButton(text)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setFont(QFont("Courier", 9, QFont.Weight.Bold))
+        btn.setFixedHeight(28)
+        btn.setStyleSheet(
+            "QPushButton {"
+            f"color: {border_color};"
+            "background-color: #121212;"
+            f"border: 1px solid {border_color};"
+            "padding: 4px 8px;"
+            "}"
+            "QPushButton:hover { background-color: #1c1c1c; }"
+            "QPushButton:pressed { background-color: #050505; }"
+        )
+        btn.clicked.connect(click_handler)
+        return btn
+
+    def _on_start_tracking_clicked(self):
+        self._calibration_handshake_sent = False
+        self.shared_state["tracking_paused"] = False
+        self.shared_state["start_tracking_requested"] = True
+        self.shared_state["request_quick_calibration"] = True
+        self.shared_state["calibration_allow_start"] = False
+        self.shared_state["calibration_summary_active"] = False
+        if self.shared_state.get("targeting_overlay_ready", False):
+            self.shared_state["currently_doing"] = "START REQUESTED (WAITING FOR CAMERA FRAME)"
+        else:
+            self.shared_state["currently_doing"] = "START REQUESTED (WAITING FOR CALIBRATION OVERLAY)"
+        self.shared_state["voice_status"] = "STARTED: CALIBRATION + INTRO"
+        if self._cam_canvas:
+            self._cam_canvas.trigger_banner("STARTED: CALIBRATING")
+        if self.audio_player and hasattr(self.audio_player, "play_judge_intro"):
+            self.audio_player.play_judge_intro()
+        elif self.audio_player:
+            self.audio_player.speak(
+                "Welcome to GesturOS. I will now calibrate your neutral pose. Move your blue marker into each red target and hold briefly."
+            )
+        if self.audio_player:
+            self.audio_player.play('lock_engage')
+
+    def _on_play_intro_clicked(self):
+        if self.audio_player and hasattr(self.audio_player, "play_judge_intro"):
+            self.audio_player.play_judge_intro()
+            self.shared_state["voice_status"] = "Playing judge intro..."
+        elif self.audio_player:
+            self.audio_player.speak(
+                "This is GesturOS. It enables hands free computer control with face tracking, voice commands, and an assisted web agent."
+            )
+
     def _update_frame(self):
         try:
             payload = None
@@ -518,10 +772,54 @@ class UIOverlay(BaseUIEngine):
                         payload.get('landmarks'),
                         payload.get('blendshapes'),
                     )
+                    if (
+                        self.shared_state.get("ui_ready", False)
+                        and self.shared_state.get("targeting_overlay_ready", False)
+                        and self.shared_state.get("start_tracking_requested", False)
+                    ):
+                        self.shared_state["calibration_allow_start"] = True
+                        self.shared_state["start_tracking_requested"] = False
+                        if not self._calibration_handshake_sent:
+                            logger.info("Calibration overlay handshake ready. Quick calibration can start.")
+                            self._calibration_handshake_sent = True
 
                 if voice_status and voice_status != self._last_voice_str:
                     self._cam_canvas.trigger_banner(voice_status)
                 self._last_voice_str = voice_status
+
+            fullscreen_calibration = bool(self.shared_state.get("calibration_screen_active", False))
+            self._cam_canvas.set_calibration_state(
+                active=self.shared_state.get("calibration_active", False) and not fullscreen_calibration,
+                progress=self.shared_state.get("calibration_progress", 0.0),
+                remaining=self.shared_state.get("calibration_remaining", 0.0),
+                sample_count=self.shared_state.get("calibration_sample_count", 0),
+                sample_target=self.shared_state.get("calibration_sample_target", 0),
+                nose_xy=self.shared_state.get("calibration_nose_xy"),
+                target_xy=self.shared_state.get("calibration_target_xy", (0.5, 0.5)),
+            )
+            summary_active = bool(self.shared_state.get("calibration_summary_active", False))
+            summary_until = float(self.shared_state.get("calibration_summary_until", 0.0) or 0.0)
+            if summary_active and summary_until and time.time() > summary_until:
+                self.shared_state["calibration_summary_active"] = False
+                summary_active = False
+            cam_summary_active = summary_active and not bool(
+                self.shared_state.get("targeting_overlay_ready", False)
+            )
+            self._cam_canvas.set_calibration_summary(
+                active=cam_summary_active,
+                text=self.shared_state.get("calibration_summary_text", ""),
+            )
+
+            if self._btn_start:
+                if self.shared_state.get("calibration_active", False):
+                    self._btn_start.setText("CALIBRATING...")
+                    self._btn_start.setEnabled(False)
+                else:
+                    self._btn_start.setEnabled(True)
+                    if self.shared_state.get("tracking_paused", False):
+                        self._btn_start.setText("START + CALIBRATE")
+                    else:
+                        self._btn_start.setText("RECALIBRATE")
 
             if self._targeting:
                 self._targeting.update_bboxes()

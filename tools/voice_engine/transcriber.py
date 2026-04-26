@@ -64,7 +64,10 @@ class VoiceTranscriber(BaseVoiceEngine):
 
         while self.running:
             try:
-                self.shared_state["voice_status"] = "Listening for 'transcribe me'..."
+                if self.shared_state.get("agent_active", False):
+                    self.shared_state["voice_status"] = "AGENT ACTIVE (say stop/cancel to interrupt)"
+                else:
+                    self.shared_state["voice_status"] = "Listening for 'transcribe me'..."
                 with self.microphone as source:
                     # To prevent blocking for cancellation, listen timeout is reduced to 2s
                     audio = self.recognizer.listen(source, timeout=2, phrase_time_limit=10)
@@ -78,6 +81,10 @@ class VoiceTranscriber(BaseVoiceEngine):
                     logger.info("--> Cancel voice command detected!")
                     self.shared_state["cancel_action"] = True
                     self.shared_state["voice_commands"] = self.shared_state.get("voice_commands", 0) + 1
+
+                # While the desktop agent is active, only allow cancellation phrases.
+                if self.shared_state.get("agent_active", False):
+                    continue
 
                 if self._handle_sniper_command(text):
                     self.shared_state["voice_commands"] = self.shared_state.get("voice_commands", 0) + 1
@@ -116,6 +123,14 @@ class VoiceTranscriber(BaseVoiceEngine):
 
         while self.running and self.shared_state["dictation_active"]:
             try:
+                if self.shared_state.get("agent_active", False):
+                    logger.info("Agent became active while dictating. Exiting dictation mode.")
+                    self.shared_state["dictation_active"] = False
+                    self.shared_state["voice_status"] = "DICTATION PAUSED (AGENT ACTIVE)"
+                    if self.audio_player:
+                        self.audio_player.play('dictation_stop')
+                    break
+
                 with self.microphone as source:
                     audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=15)
 
