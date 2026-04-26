@@ -5,21 +5,22 @@ import threading
 import cv2
 import numpy as np
 import math
-from config import Config
-from shared_state import state
+from tools.interfaces import BaseSystemNavigator
 
-class SystemNavigator:
-    def __init__(self, data_queue: queue.Queue):
+class SystemNavigator(BaseSystemNavigator):
+    def __init__(self, data_queue: queue.Queue, config: dict, shared_state: dict):
         self.data_queue = data_queue
+        self.config = config
+        self.shared_state = shared_state
         self.running = False
 
         # Cooldowns to prevent spamming macros
         self.last_action_time = 0
-        self.cooldown = Config.NAVIGATOR_COOLDOWN
+        self.cooldown = self.config.get("NAVIGATOR_COOLDOWN", 1.5)
 
         # Thresholds for extreme head poses (in degrees)
-        self.yaw_threshold = Config.YAW_THRESHOLD
-        self.pitch_threshold = Config.PITCH_THRESHOLD
+        self.yaw_threshold = self.config.get("YAW_THRESHOLD", 30.0)
+        self.pitch_threshold = self.config.get("PITCH_THRESHOLD", 20.0)
 
         # 3D model points (standard face model to match MediaPipe landmarks)
         # Using a minimal set of points: Nose tip, Chin, Left Eye, Right Eye, Left Mouth, Right Mouth
@@ -102,7 +103,7 @@ class SystemNavigator:
                 payload = self.data_queue.get(timeout=0.1)
 
                 # Pause system navigation if dictation is active
-                if state.get("dictation_active", False) or payload.get('is_locked', False):
+                if self.shared_state.get("dictation_active", False) or payload.get('is_locked', False):
                     continue
 
                 landmarks = payload['landmarks']

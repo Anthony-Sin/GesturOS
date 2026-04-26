@@ -2,13 +2,14 @@ import pyautogui
 import queue
 import time
 import threading
-from config import Config
-from shared_state import state
-from tools.audio_engine.player import AudioPlayer
+from tools.interfaces import BaseActionDispatcher
 
-class ActionDispatcher:
-    def __init__(self, data_queue: queue.Queue):
+class ActionDispatcher(BaseActionDispatcher):
+    def __init__(self, data_queue: queue.Queue, config: dict, shared_state: dict, audio_player):
         self.data_queue = data_queue
+        self.config = config
+        self.shared_state = shared_state
+        self.audio_player = audio_player
         self.running = False
 
         # Cooldowns to prevent spamming actions
@@ -17,11 +18,14 @@ class ActionDispatcher:
         self.last_smile_time = 0
 
         self.blink_start_time = None
-        self.blink_duration_threshold = Config.BLINK_DURATION_THRESHOLD
+        self.blink_duration_threshold = self.config.get("BLINK_DURATION_THRESHOLD", 0.15)
 
-        self.cooldown_blink = Config.BLINK_COOLDOWN
-        self.cooldown_jaw = Config.JAW_COOLDOWN
-        self.cooldown_smile = Config.SMILE_COOLDOWN
+        self.cooldown_blink = self.config.get("BLINK_COOLDOWN", 0.8)
+        self.cooldown_jaw = self.config.get("JAW_COOLDOWN", 0.1)
+        self.cooldown_smile = self.config.get("SMILE_COOLDOWN", 1.0)
+        self.blink_threshold = self.config.get("BLINK_THRESHOLD", 0.35)
+        self.jaw_threshold = self.config.get("JAW_THRESHOLD", 0.6)
+        self.smile_threshold = self.config.get("SMILE_THRESHOLD", 0.6)
 
     def start(self):
         self.running = True
@@ -39,7 +43,7 @@ class ActionDispatcher:
                 payload = self.data_queue.get(timeout=0.1)
 
                 # Pause action triggers if dictation is active
-                if state.get("dictation_active", False) or payload.get('is_locked', False):
+                if self.shared_state.get("dictation_active", False) or payload.get('is_locked', False):
                     continue
 
                 blendshapes = payload['blendshapes']
@@ -51,7 +55,7 @@ class ActionDispatcher:
                 blink_right = blendshapes.get('eyeBlinkRight', 0.0)
 
                 # If both eyes are closed, track duration to prevent false positives from natural blinks
-                is_blink = (blink_left > Config.BLINK_THRESHOLD and blink_right > Config.BLINK_THRESHOLD)
+                is_blink = (blink_left > self.blink_threshold and blink_right > self.blink_threshold)
 
                 if is_blink:
                     if self.blink_start_time is None:
@@ -60,7 +64,8 @@ class ActionDispatcher:
                         duration = now - self.blink_start_time
                         if duration >= self.blink_duration_threshold and (now - self.last_blink_time > self.cooldown_blink):
                             print("Action: Left Click triggered!")
-                            AudioPlayer().play('click')
+                            if self.audio_player:
+                                self.audio_player.play('click')
                             pyautogui.click()
                             self.last_blink_time = now
                             self.blink_start_time = None # Reset after click
@@ -70,7 +75,7 @@ class ActionDispatcher:
 
                 # Check Jaw Open -> Scroll Down
                 jaw_open = blendshapes.get('jawOpen', 0.0)
-                if jaw_open > Config.JAW_THRESHOLD and (now - self.last_jaw_time > self.cooldown_jaw):
+                if jaw_open > self.jaw_threshold and (now - self.last_jaw_time > self.cooldown_jaw):
                     print("Action: Scroll Down triggered!")
                     pyautogui.scroll(-50) # Scroll down (negative value usually)
                     self.last_jaw_time = now
@@ -81,7 +86,7 @@ class ActionDispatcher:
                 smile_right = blendshapes.get('mouthSmileRight', 0.0)
                 smile_avg = (smile_left + smile_right) / 2.0
 
-                if smile_avg > Config.SMILE_THRESHOLD and (now - self.last_smile_time > self.cooldown_smile):
+                if smile_avg > self.smile_threshold and (now - self.last_smile_time > self.cooldown_smile):
                     print("Action: Smile triggered! (Enter)")
                     pyautogui.press('enter')
                     self.last_smile_time = now

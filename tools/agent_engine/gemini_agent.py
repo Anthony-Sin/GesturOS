@@ -15,11 +15,15 @@ from PIL import Image
 from google import genai
 from google.genai import types
 from google.genai.types import Content, Part
+from tools.interfaces import BaseBlindAgent
 
 load_dotenv()
 
-class GeminiDesktopAgent:
-    def __init__(self):
+class GeminiDesktopAgent(BaseBlindAgent):
+    def __init__(self, config: dict, shared_state: dict, audio_player):
+        self.config = config
+        self.shared_state = shared_state
+        self.audio_player = audio_player
         self.api_key = os.getenv("GEMINI_API_KEY")
         if not self.api_key:
             print("WARNING: GEMINI_API_KEY not found in .env. Agent will not work.")

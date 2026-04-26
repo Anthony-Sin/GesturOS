@@ -2,14 +2,15 @@ import pyautogui
 import queue
 import time
 import threading
-from config import Config
-from shared_state import state
-from tools.audio_engine.player import AudioPlayer
 from tools.cursor_engine.one_euro import OneEuroFilter
+from tools.interfaces import BaseCursorEngine
 
-class CursorEngine:
-    def __init__(self, data_queue: queue.Queue):
+class CursorEngine(BaseCursorEngine):
+    def __init__(self, data_queue: queue.Queue, config: dict, shared_state: dict, audio_player):
         self.data_queue = data_queue
+        self.config = config
+        self.shared_state = shared_state
+        self.audio_player = audio_player
         self.running = False
 
         # Disable failsafe to prevent edge-case crashes
@@ -18,23 +19,21 @@ class CursorEngine:
         self.screen_w, self.screen_h = pyautogui.size()
 
         # 1 Euro Filter for advanced jitter-free smoothing
-        # beta: higher = more responsive to fast movements
-        # min_cutoff: lower = less jitter at low speeds
         self.filter_x = OneEuroFilter(min_cutoff=0.01, beta=0.8)
         self.filter_y = OneEuroFilter(min_cutoff=0.01, beta=0.8)
 
         self.last_raw_x = None
         self.last_raw_y = None
-        self.deadzone_velocity = Config.DEADZONE_VELOCITY
+        self.deadzone_velocity = self.config.get("DEADZONE_VELOCITY", 0.003)
 
         # Magnetic target integration
         self.magnetic_pull = (0, 0)
 
         # Active Zone Multiplier Configuration
-        self.active_zone_x_center = Config.ACTIVE_ZONE_X_CENTER
-        self.active_zone_y_center = Config.ACTIVE_ZONE_Y_CENTER
-        self.active_zone_width = Config.ACTIVE_ZONE_WIDTH
-        self.active_zone_height = Config.ACTIVE_ZONE_HEIGHT
+        self.active_zone_x_center = self.config.get("ACTIVE_ZONE_X_CENTER", 0.5)
+        self.active_zone_y_center = self.config.get("ACTIVE_ZONE_Y_CENTER", 0.6)
+        self.active_zone_width = self.config.get("ACTIVE_ZONE_WIDTH", 0.18)
+        self.active_zone_height = self.config.get("ACTIVE_ZONE_HEIGHT", 0.06)
 
     def start(self):
         self.running = True
@@ -67,7 +66,7 @@ class CursorEngine:
                 payload = self.data_queue.get(timeout=0.1)
 
                 # Pause cursor tracking if dictation is active
-                if state.get("dictation_active", False):
+                if self.shared_state.get("dictation_active", False):
                     continue
 
                 is_locked = payload.get('is_locked', False)
@@ -75,12 +74,14 @@ class CursorEngine:
                 # Handle drag and drop via lock state
                 if is_locked and not self.was_locked:
                     # Just entered lock state, press mouse down for dragging
-                    AudioPlayer().play('lock_engage')
+                    if self.audio_player:
+                        self.audio_player.play('lock_engage')
                     pyautogui.mouseDown()
                     self.was_locked = True
                 elif not is_locked and self.was_locked:
                     # Just exited lock state, release mouse
-                    AudioPlayer().play('lock_release')
+                    if self.audio_player:
+                        self.audio_player.play('lock_release')
                     pyautogui.mouseUp()
                     self.was_locked = False
 

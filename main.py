@@ -14,8 +14,25 @@ from tools.ui_engine.overlay import UIOverlay
 from tools.voice_engine.transcriber import VoiceTranscriber
 from tools.cursor_engine.magnetism import TargetMagnetism
 from tools.agent_engine.gemini_agent import GeminiDesktopAgent
+from tools.audio_engine.player import AudioPlayer
+from config import default_config
+
+def init_dependencies():
+    config = default_config.copy()
+    shared_state = {
+        "voice_status": "Listening for Wake Word...",
+        "dictation_active": False
+    }
+    try:
+        audio_player = AudioPlayer()
+    except Exception as e:
+        print(f"AudioPlayer init error: {e}")
+        audio_player = None
+    return config, shared_state, audio_player
 
 def launch_standard_mode():
+    config, shared_state, audio_player = init_dependencies()
+
     # We use multiple queues to broadcast the data stream to all worker threads
     # This decouples the vision processing loop from OS-execution commands.
     cursor_queue = queue.Queue(maxsize=5)
@@ -27,19 +44,19 @@ def launch_standard_mode():
     # A broadcaster thread will read from this and duplicate to the workers.
     master_queue = queue.Queue(maxsize=5)
 
-    pipeline = VisionPipeline(master_queue, target_fps=30)
-    cursor_engine = CursorEngine(cursor_queue)
-    action_dispatcher = ActionDispatcher(action_queue)
-    system_navigator = SystemNavigator(navigator_queue)
-    ui_overlay = UIOverlay(ui_queue)
+    pipeline = VisionPipeline(master_queue, config, shared_state)
+    cursor_engine = CursorEngine(cursor_queue, config, shared_state, audio_player)
+    action_dispatcher = ActionDispatcher(action_queue, config, shared_state, audio_player)
+    system_navigator = SystemNavigator(navigator_queue, config, shared_state)
+    ui_overlay = UIOverlay(ui_queue, config, shared_state, audio_player)
 
     # Target Magnetism for UI Snapping
-    target_magnetism = TargetMagnetism(cursor_engine)
+    target_magnetism = TargetMagnetism(cursor_engine, config)
 
     # Optional Voice Transcriber
     voice_transcriber = None
     try:
-        voice_transcriber = VoiceTranscriber()
+        voice_transcriber = VoiceTranscriber(config, shared_state, audio_player)
     except Exception as e:
         print(f"Warning: Could not initialize Voice Transcriber. Skipping. Error: {e}")
 
@@ -130,6 +147,7 @@ def launch_standard_mode():
     print("Application exited.")
 
 def launch_blind_mode():
+    config, shared_state, audio_player = init_dependencies()
     print("Starting Blind Accessibility Mode...")
 
     # The user specifically requested: "do not remove the ey things just add this"
@@ -141,15 +159,15 @@ def launch_blind_mode():
     ui_queue = queue.Queue(maxsize=5)
     master_queue = queue.Queue(maxsize=5)
 
-    pipeline = VisionPipeline(master_queue, target_fps=30)
-    cursor_engine = CursorEngine(cursor_queue)
-    action_dispatcher = ActionDispatcher(action_queue)
-    system_navigator = SystemNavigator(navigator_queue)
-    ui_overlay = UIOverlay(ui_queue)
-    target_magnetism = TargetMagnetism(cursor_engine)
+    pipeline = VisionPipeline(master_queue, config, shared_state)
+    cursor_engine = CursorEngine(cursor_queue, config, shared_state, audio_player)
+    action_dispatcher = ActionDispatcher(action_queue, config, shared_state, audio_player)
+    system_navigator = SystemNavigator(navigator_queue, config, shared_state)
+    ui_overlay = UIOverlay(ui_queue, config, shared_state, audio_player)
+    target_magnetism = TargetMagnetism(cursor_engine, config)
 
     # Start the Gemini Agent alongside everything else
-    agent = GeminiDesktopAgent()
+    agent = GeminiDesktopAgent(config, shared_state, audio_player)
 
     running = True
 

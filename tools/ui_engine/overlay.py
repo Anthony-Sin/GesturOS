@@ -4,13 +4,14 @@ import cv2
 from PIL import Image, ImageTk
 import collections
 import time
-from config import Config
-from shared_state import state
-from tools.audio_engine.player import AudioPlayer
+from tools.interfaces import BaseUIEngine
 
-class UIOverlay:
-    def __init__(self, data_queue: queue.Queue):
+class UIOverlay(BaseUIEngine):
+    def __init__(self, data_queue: queue.Queue, config: dict, shared_state: dict, audio_player):
         self.data_queue = data_queue
+        self.config = config
+        self.shared_state = shared_state
+        self.audio_player = audio_player
 
         # Create a Toplevel window instead of Tk() if a root already exists in this process (e.g. from launcher)
         try:
@@ -21,8 +22,8 @@ class UIOverlay:
         self.root.title("Hands-Free Controller")
 
         # Make the window small and place it at the bottom right
-        self.window_width = Config.UI_WIDTH
-        self.window_height = Config.UI_HEIGHT
+        self.window_width = self.config.get("UI_WIDTH", 320)
+        self.window_height = self.config.get("UI_HEIGHT", 240)
 
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
@@ -198,7 +199,7 @@ class UIOverlay:
                         cv2.putText(frame, f"FPS: {fps:.1f}", (self.window_width - 80, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
 
                 # Voice Transcriber Status
-                voice_status = state.get("voice_status", "")
+                voice_status = self.shared_state.get("voice_status", "")
                 if voice_status:
                     color = (0, 255, 255) if "DICTATING" in voice_status else (200, 200, 200)
                     cv2.putText(frame, voice_status, (20, self.window_height - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, color, 1)

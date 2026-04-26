@@ -7,7 +7,7 @@ import os
 
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
-from config import Config
+from tools.interfaces import BaseVisionEngine
 
 MODEL_PATH = 'face_landmarker.task'
 MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
@@ -18,11 +18,14 @@ def download_model_if_missing():
         urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
         print("Download complete.")
 
-class VisionPipeline:
-    def __init__(self, data_queue: queue.Queue, target_fps: int = Config.TARGET_FPS):
+class VisionPipeline(BaseVisionEngine):
+    def __init__(self, data_queue: queue.Queue, config: dict, shared_state: dict):
         self.data_queue = data_queue
-        self.target_fps = target_fps
-        self.frame_duration = 1.0 / target_fps
+        self.config = config
+        self.shared_state = shared_state
+
+        self.target_fps = self.config.get("TARGET_FPS", 30)
+        self.frame_duration = 1.0 / self.target_fps
         self.running = False
 
         download_model_if_missing()
@@ -41,9 +44,9 @@ class VisionPipeline:
         self.is_locked = False
         self.anchor_point = None
         self.anchor_start_time = 0
-        self.lock_duration_threshold = Config.LOCK_DURATION_THRESHOLD
-        self.movement_threshold = Config.LOCK_MOVEMENT_THRESHOLD
-        self.breakout_threshold = Config.LOCK_BREAKOUT_THRESHOLD
+        self.lock_duration_threshold = self.config.get("LOCK_DURATION_THRESHOLD", 5.0)
+        self.movement_threshold = self.config.get("LOCK_MOVEMENT_THRESHOLD", 0.025)
+        self.breakout_threshold = self.config.get("LOCK_BREAKOUT_THRESHOLD", 0.12)
 
     def start(self):
         self.running = True

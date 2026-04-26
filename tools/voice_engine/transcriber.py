@@ -1,11 +1,13 @@
 import speech_recognition as sr
 import threading
 import pyautogui
-from shared_state import state
-from tools.audio_engine.player import AudioPlayer
+from tools.interfaces import BaseVoiceEngine
 
-class VoiceTranscriber:
-    def __init__(self):
+class VoiceTranscriber(BaseVoiceEngine):
+    def __init__(self, config: dict, shared_state: dict, audio_player):
+        self.config = config
+        self.shared_state = shared_state
+        self.audio_player = audio_player
         self.recognizer = sr.Recognizer()
         self.microphone = sr.Microphone()
         self.running = False
@@ -40,12 +42,12 @@ class VoiceTranscriber:
 
         while self.running:
             try:
-                state["voice_status"] = "Listening for 'transcribe me'..."
+                self.shared_state["voice_status"] = "Listening for 'transcribe me'..."
                 with self.microphone as source:
                     # Listen without strict timeout so we don't abort mid-speech
                     audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=10)
 
-                state["voice_status"] = "Processing..."
+                self.shared_state["voice_status"] = "Processing..."
                 # Use Google Web Speech API (free, doesn't require API key for light usage)
                 text = self.recognizer.recognize_google(audio).lower()
                 print(f"[Voice Heard]: {text}")
@@ -69,14 +71,15 @@ class VoiceTranscriber:
 
     def _dictate(self):
         # We are now in dictation mode.
-        state["dictation_active"] = True
-        AudioPlayer().play('dictation_start')
+        self.shared_state["dictation_active"] = True
+        if self.audio_player:
+            self.audio_player.play('dictation_start')
         print("Dictation mode active. Tracking paused. Say 'transcribe done' to exit.")
-        state["voice_status"] = "DICTATING (Say 'transcribe done' to stop)"
+        self.shared_state["voice_status"] = "DICTATING (Say 'transcribe done' to stop)"
 
         exit_words = ["transcribe done", "transcript done", "stop dictation", "stop transcribing"]
 
-        while self.running and state["dictation_active"]:
+        while self.running and self.shared_state["dictation_active"]:
             try:
                 with self.microphone as source:
                     # Listen continuously until silence
@@ -95,8 +98,9 @@ class VoiceTranscriber:
                             pyautogui.write(final_text + " ", interval=0.01)
 
                         print("--> Exit phrase detected. Ending dictation...")
-                        state["dictation_active"] = False
-                        AudioPlayer().play('dictation_stop')
+                        self.shared_state["dictation_active"] = False
+                        if self.audio_player:
+                            self.audio_player.play('dictation_stop')
                         exit_found = True
                         break
 
@@ -105,7 +109,7 @@ class VoiceTranscriber:
                 else:
                     # Write the chunk immediately
                     pyautogui.write(text + " ", interval=0.01)
-                    state["voice_status"] = f"TYPED: {text[:15]}..."
+                    self.shared_state["voice_status"] = f"TYPED: {text[:15]}..."
 
             except sr.WaitTimeoutError:
                 pass # Just keep listening if they are silent
@@ -113,8 +117,8 @@ class VoiceTranscriber:
                 pass
             except sr.RequestError as e:
                 print(f"Service error during dictation: {e}")
-                state["dictation_active"] = False
+                self.shared_state["dictation_active"] = False
                 break
 
-        state["dictation_active"] = False
-        state["voice_status"] = "Listening for 'transcribe me'..."
+        self.shared_state["dictation_active"] = False
+        self.shared_state["voice_status"] = "Listening for 'transcribe me'..."

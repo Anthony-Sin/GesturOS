@@ -1,7 +1,7 @@
 import tkinter as tk
 import threading
 import speech_recognition as sr
-from config import Config
+from config import default_config
 
 def show_launcher():
     """

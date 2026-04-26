@@ -4,15 +4,17 @@ import mss
 import numpy as np
 import cv2
 import pyautogui
+from tools.interfaces import BaseMagnetismEngine
 
-class TargetMagnetism:
-    def __init__(self, cursor_engine):
+class TargetMagnetism(BaseMagnetismEngine):
+    def __init__(self, cursor_engine, config: dict):
         self.cursor_engine = cursor_engine
+        self.config = config
         self.running = False
         self.sct = mss.mss()
-        self.search_radius = 150 # Radius in pixels around cursor to look for targets
-        self.magnet_pull_strength = 0.6 # Multiplier for how hard it snaps to the center
-        self.trigger_distance = 40 # Distance within which magnetism activates
+        self.search_radius = self.config.get("MAGNETISM_SEARCH_RADIUS", 150)
+        self.magnet_pull_strength = self.config.get("MAGNETISM_PULL_STRENGTH", 0.6)
+        self.trigger_distance = self.config.get("MAGNETISM_TRIGGER_DISTANCE", 40)
 
     def start(self):
         self.running = True
