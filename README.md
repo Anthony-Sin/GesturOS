@@ -24,7 +24,9 @@ A comprehensive Python application designed for motor-impaired users. It transla
 4. **API Keys (Required)**: Create a `.env` file in the root directory and add the following keys exactly as written:
    ```env
    GEMINI_API_KEY=your_google_gemini_key_here
-   ELEVENLABS_API_KEY=your_elevenlabs_tts_key_here
+   ELEVENLABS_API_KEY=optional_tts_alias_key_or_leave_placeholder
+   ELEVENLABS_MODEL_ID=gemini-2.5-flash-preview-tts
+   ELEVENLABS_VOICE_NAME=
    ```
 
 ## Model Configuration

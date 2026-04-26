@@ -432,111 +432,128 @@ User command: "{command}"
         return function_responses
 
     def _handle_agent_loop(self, user_command):
-        self.speak(f"Okay, taking over. I will try to: {user_command}")
-        self.shared_state["currently_doing"] = "PLANNING AGENT ACTIONS..."
+        prev_tracking_paused = bool(self.shared_state.get("tracking_paused", False))
+        prev_sniper_mode = bool(self.shared_state.get("sniper_mode_active", False))
+        self.shared_state["agent_active"] = True
+        self.shared_state["tracking_paused"] = True
+        self.shared_state["continuous_scroll_active"] = None
+        self.shared_state["sniper_mode_active"] = False
+        self.shared_state["magnet_snap_target"] = None
+        self.shared_state["magnet_target_bbox"] = None
 
-        if not self.client:
-            logger.warning("Agent disabled due to missing API key.")
-            self.speak("API key missing.")
-            self.shared_state["currently_doing"] = "ERROR: API KEY MISSING"
-            return
+        try:
+            self.speak(f"Okay, taking over. I will try to: {user_command}")
+            self.shared_state["currently_doing"] = "PLANNING AGENT ACTIONS..."
 
-        agent_model = self.config.get("LLM_AGENT_MODEL", "gemini-2.5-computer-use-preview-10-2025")
-        agent_environment = self._resolve_computer_use_environment()
-        config = types.GenerateContentConfig(
-            system_instruction="You are a helpful, autonomous UI agent. Use the screen context to execute the user's tasks. Do not output require_confirmation unless executing a highly destructive action (like deleting a file or sending an email). Keep text output extremely brief.",
-            tools=[types.Tool(computer_use=types.ComputerUse(
-                environment=agent_environment
-            ))],
-            temperature=0.0,
-            max_output_tokens=self.agent_max_output_tokens,
-        )
+            if not self.client:
+                logger.warning("Agent disabled due to missing API key.")
+                self.speak("API key missing.")
+                self.shared_state["currently_doing"] = "ERROR: API KEY MISSING"
+                return
 
-        initial_screenshot = self._capture_screen_bytes()
-        contents = [
-            Content(role="user", parts=[
-                Part(text=user_command),
-                Part.from_bytes(data=initial_screenshot, mime_type='image/png')
-            ])
-        ]
+            agent_model = self.config.get("LLM_AGENT_MODEL", "gemini-2.5-computer-use-preview-10-2025")
+            agent_environment = self._resolve_computer_use_environment()
+            config = types.GenerateContentConfig(
+                system_instruction="You are a helpful, autonomous UI agent. Use the screen context to execute the user's tasks. Do not output require_confirmation unless executing a highly destructive action (like deleting a file or sending an email). Keep text output extremely brief.",
+                tools=[types.Tool(computer_use=types.ComputerUse(
+                    environment=agent_environment
+                ))],
+                temperature=0.0,
+                max_output_tokens=self.agent_max_output_tokens,
+            )
 
-        turn_limit = self.agent_max_turns
-        total_actions = 0
-        total_tool_errors = 0
-        for i in range(turn_limit):
-            logger.info(f"\n--- Agent Turn {i+1} ---")
+            initial_screenshot = self._capture_screen_bytes()
+            contents = [
+                Content(role="user", parts=[
+                    Part(text=user_command),
+                    Part.from_bytes(data=initial_screenshot, mime_type='image/png')
+                ])
+            ]
 
-            try:
-                with self.microphone as source:
-                    audio = self.recognizer.listen(source, timeout=0.5, phrase_time_limit=2)
-                text = self.recognizer.recognize_google(audio).lower()
-                if "agent stop" in text or "stop agent" in text or "cancel" in text:
-                    self.speak("Stopping the agent.")
-                    self.shared_state["currently_doing"] = "AGENT STOPPED BY USER"
-                    break
-            except Exception:
-                pass
+            turn_limit = self.agent_max_turns
+            total_actions = 0
+            total_tool_errors = 0
+            for i in range(turn_limit):
+                logger.info(f"\n--- Agent Turn {i+1} ---")
 
-            try:
-                response = self.client.models.generate_content(
-                    model=agent_model,
-                    contents=contents,
-                    config=config,
-                )
+                try:
+                    with self.microphone as source:
+                        audio = self.recognizer.listen(source, timeout=0.5, phrase_time_limit=2)
+                    text = self.recognizer.recognize_google(audio).lower()
+                    if "agent stop" in text or "stop agent" in text or "cancel" in text:
+                        self.speak("Stopping the agent.")
+                        self.shared_state["currently_doing"] = "AGENT STOPPED BY USER"
+                        break
+                except Exception:
+                    pass
 
-                if not response.candidates:
-                    raise RuntimeError("No candidate returned by Gemini.")
-                candidate = response.candidates[0]
-                if not candidate.content or not candidate.content.parts:
-                    raise RuntimeError("Candidate content was empty.")
-                contents.append(candidate.content)
-
-                function_calls = self._extract_function_calls(candidate)
-                has_function_calls = bool(function_calls)
-                if not has_function_calls:
-                    final_text = " ".join([part.text for part in candidate.content.parts if part.text])
-                    logger.info(f"Agent finished: {final_text}")
-                    self.shared_state["currently_doing"] = "TASK COMPLETE"
-                    self.speak("Task complete.")
-                    break
-
-                remaining_actions = self.agent_max_actions_per_task - total_actions
-                if remaining_actions <= 0:
-                    self.speak("Stopping to avoid excessive automation steps.")
-                    self.shared_state["currently_doing"] = "STOPPED: ACTION BUDGET REACHED"
-                    break
-
-                if len(function_calls) > remaining_actions:
-                    logger.warning(
-                        f"Agent requested {len(function_calls)} actions but only {remaining_actions} are allowed."
+                try:
+                    response = self.client.models.generate_content(
+                        model=agent_model,
+                        contents=contents,
+                        config=config,
                     )
-                    function_calls = function_calls[:remaining_actions]
 
-                results = self._execute_function_calls(function_calls)
-                total_actions += len(results)
-                total_tool_errors += sum(1 for _, result in results if result.get("error"))
-                if total_tool_errors >= self.agent_max_tool_errors:
-                    self.speak("Stopping because too many tool errors occurred.")
-                    self.shared_state["currently_doing"] = "STOPPED: TOO MANY TOOL ERRORS"
+                    if not response.candidates:
+                        raise RuntimeError("No candidate returned by Gemini.")
+                    candidate = response.candidates[0]
+                    if not candidate.content or not candidate.content.parts:
+                        raise RuntimeError("Candidate content was empty.")
+                    contents.append(candidate.content)
+
+                    function_calls = self._extract_function_calls(candidate)
+                    has_function_calls = bool(function_calls)
+                    if not has_function_calls:
+                        final_text = " ".join([part.text for part in candidate.content.parts if part.text])
+                        logger.info(f"Agent finished: {final_text}")
+                        self.shared_state["currently_doing"] = "TASK COMPLETE"
+                        self.speak("Task complete.")
+                        break
+
+                    remaining_actions = self.agent_max_actions_per_task - total_actions
+                    if remaining_actions <= 0:
+                        self.speak("Stopping to avoid excessive automation steps.")
+                        self.shared_state["currently_doing"] = "STOPPED: ACTION BUDGET REACHED"
+                        break
+
+                    if len(function_calls) > remaining_actions:
+                        logger.warning(
+                            f"Agent requested {len(function_calls)} actions but only {remaining_actions} are allowed."
+                        )
+                        function_calls = function_calls[:remaining_actions]
+
+                    results = self._execute_function_calls(function_calls)
+                    total_actions += len(results)
+                    total_tool_errors += sum(1 for _, result in results if result.get("error"))
+                    if total_tool_errors >= self.agent_max_tool_errors:
+                        self.speak("Stopping because too many tool errors occurred.")
+                        self.shared_state["currently_doing"] = "STOPPED: TOO MANY TOOL ERRORS"
+                        break
+
+                    new_screenshot = self._capture_screen_bytes()
+                    function_responses = self._get_function_responses(results)
+
+                    parts = [Part.from_function_response(name=fr.name, response=fr.response) for fr in function_responses]
+                    parts.append(Part.from_bytes(data=new_screenshot, mime_type='image/png'))
+
+                    contents.append(Content(role="user", parts=parts))
+                    if len(contents) > self.agent_max_history_items:
+                        contents = [contents[0]] + contents[-(self.agent_max_history_items - 1):]
+                except Exception as e:
+                    logger.error(f"Agent turn failed: {e}")
+                    self.speak("I encountered an issue while trying to complete the task.")
+                    self.shared_state["currently_doing"] = "ERROR: TURN FAILED"
                     break
-
-                new_screenshot = self._capture_screen_bytes()
-                function_responses = self._get_function_responses(results)
-
-                parts = [Part.from_function_response(name=fr.name, response=fr.response) for fr in function_responses]
-                parts.append(Part.from_bytes(data=new_screenshot, mime_type='image/png'))
-
-                contents.append(Content(role="user", parts=parts))
-                if len(contents) > self.agent_max_history_items:
-                    contents = [contents[0]] + contents[-(self.agent_max_history_items - 1):]
-            except Exception as e:
-                logger.error(f"Agent turn failed: {e}")
-                self.speak("I encountered an issue while trying to complete the task.")
-                self.shared_state["currently_doing"] = "ERROR: TURN FAILED"
-                break
-        else:
-             self.speak("Turn limit reached.")
-             self.shared_state["currently_doing"] = "ERROR: TURN LIMIT REACHED"
+            else:
+                self.speak("Turn limit reached.")
+                self.shared_state["currently_doing"] = "ERROR: TURN LIMIT REACHED"
+        finally:
+            self.shared_state["agent_active"] = False
+            self.shared_state["tracking_paused"] = bool(self.shared_state.get("dictation_active", False)) or prev_tracking_paused
+            self.shared_state["sniper_mode_active"] = prev_sniper_mode
+            self.shared_state["magnet_snap_target"] = None
+            self.shared_state["magnet_target_bbox"] = None
+            self.shared_state["agent_target_bbox"] = None
 
     # --- Local Tools (Verbs) ---
     def _tool_execute_keyboard_shortcut(self, keys: list):

@@ -27,6 +27,7 @@ YELLOW = "#FFFF00"
 CYAN   = "#00FFFF"
 GREEN  = "#00FF00"
 GRAY   = "#555555"
+EYE    = "#7CFF00"
 
 # MediaPipe landmark indices
 L_EYE_TOP = 159; L_EYE_BOT = 145; L_EYE_INNER = 133; L_EYE_OUTER = 33
@@ -35,14 +36,15 @@ L_BROW_INNER = 107; L_BROW_OUTER = 70
 R_BROW_INNER = 336; R_BROW_OUTER = 300
 
 COMMANDS = [
-    ("SAY",  "'AGENT [task]'",   "→ AI agent"),
-    ("SAY",  "'TRANSCRIBE ME'",  "→ dictation"),
-    ("SAY",  "'PRESS [key]'",    "→ key press"),
-    ("SAY",  "'STOP / CANCEL'",  "→ abort"),
-    ("HOLD", "gaze still 5s",    "→ lock cursor"),
-    ("MOVE", "head sharply",     "→ unlock"),
+    ("SAY",  "'AGENT [task]'",   "-> AI agent"),
+    ("SAY",  "'TRANSCRIBE ME'",  "-> dictation"),
+    ("SAY",  "'TRANSCRIBE DONE'", "-> stop dictation"),
+    ("SAY",  "'PRESS [key]'",    "-> key press"),
+    ("SAY",  "'OPEN / CLICK'",   "-> click target"),
+    ("SAY",  "'STOP / CANCEL'",  "-> abort"),
+    ("SAY",  "'SNIPER MODE'",    "-> toggle snap aim"),
+    ("HOLD", "gaze still 5s",    "-> lock cursor"),
 ]
-
 
 def _safe_lm(landmarks, idx):
     try:
@@ -204,7 +206,7 @@ class CamCanvas(QLabel):
             if not all([top, bot, inn, out]):
                 continue
 
-            cx = int(((inn.x + out.x) / 2) * self.CAM_W)
+            cx = int((1.0 - ((inn.x + out.x) / 2)) * self.CAM_W)
             cy = int(((top.y + bot.y) / 2) * self.CAM_H)
 
             # Use raw geometry — no amplification, cap height to 40% of width
@@ -212,7 +214,7 @@ class CamCanvas(QLabel):
             raw_eh = int(abs(top.y - bot.y) * self.CAM_H)
             eh = max(2, min(raw_eh, int(ew * 0.4)))
 
-            painter.setPen(QPen(QColor(CYAN), 1))
+            painter.setPen(QPen(QColor(EYE), 1))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawEllipse(QPoint(cx, cy), ew, eh)
 
@@ -222,13 +224,14 @@ class CamCanvas(QLabel):
                 continue
 
             # Gaze — clamped to stay inside ellipse
-            gx = int((lk_in - lk_out) * ew * 0.45)
+            # Invert horizontal gaze offset to match mirrored camera display.
+            gx = int((lk_out - lk_in) * ew * 0.45)
             gy = int((lk_dn  - lk_up)  * eh * 0.45)
             gx = max(-ew + 2, min(gx, ew - 2))
             gy = max(-eh + 1, min(gy, eh - 1))
 
             iris_r = max(2, ew // 4)
-            painter.setBrush(QBrush(QColor(CYAN)))
+            painter.setBrush(QBrush(QColor(EYE)))
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(QPoint(cx + gx, cy + gy), iris_r, iris_r)
             painter.setBrush(QBrush(QColor(BG)))
@@ -289,6 +292,7 @@ class CamCanvas(QLabel):
 
 class UIOverlay(BaseUIEngine):
     STATUS_HOLD_SECS = 15.0
+    WINDOW_MARGIN_PX = 12
 
     def __init__(self, data_queue: queue.Queue, config: dict, shared_state: dict, audio_player):
         self.data_queue   = data_queue
@@ -421,14 +425,26 @@ class UIOverlay(BaseUIEngine):
         outer.addWidget(frame)
         win.adjustSize()
 
-        screen_obj = QApplication.primaryScreen()
-        if screen_obj:
-            ag = screen_obj.availableGeometry()
-            win.move(ag.right() - win.width() - 12, ag.bottom() - win.height() - 12)
-
         win.show()
         self._win = win
+        self._position_main_window_bottom_right()
         logger.debug(f"Main UI window shown: {win.width()}x{win.height()} at ({win.x()},{win.y()})")
+
+    def _position_main_window_bottom_right(self):
+        if not self._win:
+            return
+        screen_obj = QApplication.primaryScreen()
+        if not screen_obj:
+            return
+
+        ag = screen_obj.availableGeometry()
+        margin = self.WINDOW_MARGIN_PX
+        target_x = ag.x() + ag.width() - self._win.width() - margin
+        target_y = ag.y() + ag.height() - self._win.height() - margin
+        # Clamp so the panel always stays fully visible above taskbar/docks.
+        target_x = max(ag.x(), target_x)
+        target_y = max(ag.y(), target_y)
+        self._win.move(target_x, target_y)
 
     def _hline(self, color=RED):
         line = QFrame()
@@ -510,5 +526,9 @@ class UIOverlay(BaseUIEngine):
             if self._targeting:
                 self._targeting.update_bboxes()
 
+            # Keep HUD anchored in bottom-right above taskbar while content changes.
+            self._position_main_window_bottom_right()
+
         except Exception as e:
             logger.error(f"_update_frame error: {e}", exc_info=True)
+

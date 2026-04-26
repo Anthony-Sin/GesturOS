@@ -50,10 +50,15 @@ def init_dependencies():
     shared_state = {
         "voice_status": "Listening for Wake Word...",
         "dictation_active": False,
+        "agent_active": False,
+        "tracking_paused": False,
         "currently_doing": "AWAITING COMMAND",
         "clicks_saved": 0,
         "voice_commands": 0,
-        "cursor_distance": 0
+        "cursor_distance": 0,
+        "sniper_mode_active": False,
+        "sniper_candidate_index": 0,
+        "sniper_candidate_count": 0
     }
     logger.info("Initializing Dependencies...")
     try:

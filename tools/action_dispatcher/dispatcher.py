@@ -63,6 +63,15 @@ class ActionDispatcher(BaseActionDispatcher):
 
     def _continuous_scroll_loop(self):
         while self.running:
+            if (
+                self.shared_state.get("tracking_paused", False)
+                or self.shared_state.get("agent_active", False)
+                or self.shared_state.get("dictation_active", False)
+            ):
+                self.shared_state["continuous_scroll_active"] = None
+                time.sleep(0.05)
+                continue
+
             scroll_dir = self.shared_state.get("continuous_scroll_active")
             if scroll_dir:
                 # Smooth continuous scroll
@@ -79,7 +88,12 @@ class ActionDispatcher(BaseActionDispatcher):
             try:
                 payload = self.data_queue.get(timeout=0.1)
 
-                if self.shared_state.get("dictation_active", False):
+                if (
+                    self.shared_state.get("dictation_active", False)
+                    or self.shared_state.get("tracking_paused", False)
+                    or self.shared_state.get("agent_active", False)
+                ):
+                    self.shared_state["continuous_scroll_active"] = None
                     continue
 
                 blendshapes = payload['blendshapes']

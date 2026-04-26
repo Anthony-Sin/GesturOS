@@ -38,6 +38,10 @@ class CursorEngine(BaseCursorEngine):
         self.active_zone_y_center = self.config.get("ACTIVE_ZONE_Y_CENTER", 0.6)
         self.active_zone_width    = self.config.get("ACTIVE_ZONE_WIDTH",    0.18)
         self.active_zone_height   = self.config.get("ACTIVE_ZONE_HEIGHT",   0.06)
+        self.force_cursor_center_on_start = bool(self.config.get("FORCE_CURSOR_CENTER_ON_START", True))
+        self.auto_center_on_start = bool(self.config.get("AUTO_CENTER_ON_START", True))
+        self._did_startup_center_calibration = False
+        self._did_force_startup_center = False
 
         self.magnetism_pull_strength = max(
             0.0, min(1.0, float(self.config.get("MAGNETISM_PULL_STRENGTH", 0.35)))
@@ -92,6 +96,8 @@ class CursorEngine(BaseCursorEngine):
             try:
                 payload = self.data_queue.get(timeout=0.1)
 
+                if self.shared_state.get("tracking_paused", False) or self.shared_state.get("agent_active", False):
+                    continue
                 # ── Look-away pause ───────────────────────────────────────────
                 is_looking_away = payload.get('is_looking_away', False)
                 if is_looking_away:
@@ -145,6 +151,39 @@ class CursorEngine(BaseCursorEngine):
 
                 raw_x = nose_tip['x']
                 raw_y = nose_tip['y']
+
+                if self.force_cursor_center_on_start and not self._did_force_startup_center:
+                    center_x = int(self.screen_w / 2)
+                    center_y = int(self.screen_h / 2)
+                    try:
+                        pyautogui.moveTo(center_x, center_y)
+                    except Exception as e:
+                        logger.warning(f"Startup hard-center move error: {e}")
+                    self.last_cursor_pos = (center_x, center_y)
+                    # Seed filters at center to avoid a jump.
+                    self.filter_x(center_x, timestamp)
+                    self.filter_y(center_y, timestamp)
+                    self._did_force_startup_center = True
+
+                if self.auto_center_on_start and not self._did_startup_center_calibration:
+                    half_w = self.active_zone_width / 2.0
+                    half_h = self.active_zone_height / 2.0
+                    # Clamp so active zone remains valid while making neutral face map to screen center.
+                    normalized_x_for_mapping = 1.0 - raw_x
+                    self.active_zone_x_center = max(half_w, min(1.0 - half_w, normalized_x_for_mapping))
+                    self.active_zone_y_center = max(half_h, min(1.0 - half_h, raw_y))
+                    self._did_startup_center_calibration = True
+
+                    center_x = int(self.screen_w / 2)
+                    center_y = int(self.screen_h / 2)
+                    try:
+                        pyautogui.moveTo(center_x, center_y)
+                    except Exception as e:
+                        logger.warning(f"Startup center move error: {e}")
+                    self.last_cursor_pos = (center_x, center_y)
+                    # Seed filters at center to avoid a jump on the next frame.
+                    self.filter_x(center_x, timestamp)
+                    self.filter_y(center_y, timestamp)
 
                 skip_movement = False
                 if self.last_raw_x is not None and self.last_raw_y is not None:
@@ -220,3 +259,4 @@ class CursorEngine(BaseCursorEngine):
             except Exception as e:
                 logger.error(f"CursorEngine _run error: {e}", exc_info=True)
                 time.sleep(0.05)  # brief pause before retrying so we don't spin
+

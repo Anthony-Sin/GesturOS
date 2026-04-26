@@ -434,3 +434,334 @@
 [2026-04-26 09:32:06,256] [INFO] [main] — 
 [!] Global hotkey Alt+Q pressed. Force Exiting...
 [2026-04-26 09:32:06,257] [INFO] [main] — Shutting down gracefully...
+[2026-04-26 09:39:14,293] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 09:39:14,316] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:39:14,317] [DEBUG] [__init__] — interactive is False
+[2026-04-26 09:39:14,317] [DEBUG] [__init__] — platform is win32
+[2026-04-26 09:39:14,359] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:39:14,361] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 09:39:16,923] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 09:39:16,923] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 09:39:16,923] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 09:39:17,159] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 09:39:17,159] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 09:39:17,207] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 09:39:17,841] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 09:39:19,844] [INFO] [transcriber] — Microphone ready. Energy threshold: 92.32086097754375
+[2026-04-26 09:39:22,913] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 09:39:22,914] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 09:39:22,915] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 09:39:22,916] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 09:39:22,916] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 09:39:22,918] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 09:39:23,155] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 09:39:25,305] [DEBUG] [_trace] — connect_tcp.started host='api.elevenlabs.io' port=443 local_address=None timeout=240 socket_options=None
+[2026-04-26 09:39:25,306] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 09:39:25,306] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 09:39:25,379] [DEBUG] [_trace] — connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x0000017D9A9423C0>
+[2026-04-26 09:39:25,379] [DEBUG] [_trace] — start_tls.started ssl_context=<ssl.SSLContext object at 0x0000017D9A52BE30> server_hostname='api.elevenlabs.io' timeout=240
+[2026-04-26 09:39:25,858] [DEBUG] [_trace] — start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x0000017DACB2A350>
+[2026-04-26 09:39:25,860] [DEBUG] [_trace] — send_request_headers.started request=<Request [b'POST']>
+[2026-04-26 09:39:25,862] [DEBUG] [overlay] — Main UI window shown: 318x481 at (1590,527)
+[2026-04-26 09:39:25,863] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 09:39:25,863] [DEBUG] [_trace] — send_request_headers.complete
+[2026-04-26 09:39:25,863] [DEBUG] [_trace] — send_request_body.started request=<Request [b'POST']>
+[2026-04-26 09:39:25,864] [DEBUG] [_trace] — send_request_body.complete
+[2026-04-26 09:39:25,864] [DEBUG] [_trace] — receive_response_headers.started request=<Request [b'POST']>
+[2026-04-26 09:39:25,930] [DEBUG] [_trace] — receive_response_headers.complete return_value=(b'HTTP/1.1', 401, b'Unauthorized', [(b'date', b'Sun, 26 Apr 2026 13:39:29 GMT'), (b'server', b'uvicorn'), (b'Content-Length', b'67'), (b'content-type', b'application/json'), (b'vary', b'Accept-Language'), (b'access-control-allow-origin', b'*'), (b'access-control-allow-headers', b'*'), (b'access-control-allow-methods', b'POST, PATCH, OPTIONS, DELETE, GET, PUT'), (b'access-control-max-age', b'600'), (b'Strict-Transport-Security', b'max-age=1800;'), (b'x-trace-id', b'7e8fb2ed2791f54f6373de0779024446'), (b'x-region', b'us-central1'), (b'Via', b'1.1 google'), (b'Alt-Svc', b'h3=":443"; ma=2592000')])
+[2026-04-26 09:39:25,931] [INFO] [_client] — HTTP Request: POST https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM?output_format=mp3_44100_128 "HTTP/1.1 401 Unauthorized"
+[2026-04-26 09:39:25,932] [DEBUG] [_trace] — receive_response_body.started request=<Request [b'POST']>
+[2026-04-26 09:39:25,932] [DEBUG] [_trace] — receive_response_body.complete
+[2026-04-26 09:39:25,932] [DEBUG] [_trace] — response_closed.started
+[2026-04-26 09:39:25,932] [DEBUG] [_trace] — response_closed.complete
+[2026-04-26 09:39:25,933] [WARNING] [player] — ElevenLabs generation failed: headers: {'date': 'Sun, 26 Apr 2026 13:39:29 GMT', 'server': 'uvicorn', 'content-length': '67', 'content-type': 'application/json', 'vary': 'Accept-Language', 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, PATCH, OPTIONS, DELETE, GET, PUT', 'access-control-max-age': '600', 'strict-transport-security': 'max-age=1800;', 'x-trace-id': '7e8fb2ed2791f54f6373de0779024446', 'x-region': 'us-central1', 'via': '1.1 google', 'alt-svc': 'h3=":443"; ma=2592000'}, status_code: 401, body: {'detail': {'status': 'invalid_api_key', 'message': 'Invalid API key'}}
+[2026-04-26 09:39:26,385] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 09:39:26,385] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 09:39:49,561] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 09:39:54,307] [INFO] [pipeline] — Pipeline: Interface UNLOCKED.
+[2026-04-26 09:40:04,545] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:40:06,330] [INFO] [main] — 
+[!] Global hotkey Alt+Q pressed. Force Exiting...
+[2026-04-26 09:40:06,331] [INFO] [main] — Shutting down gracefully...
+[2026-04-26 09:48:45,427] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 09:48:45,449] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:48:45,450] [DEBUG] [__init__] — interactive is False
+[2026-04-26 09:48:45,450] [DEBUG] [__init__] — platform is win32
+[2026-04-26 09:48:45,500] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:48:45,503] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 09:48:48,101] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 09:48:48,101] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 09:48:48,101] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 09:48:48,338] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 09:48:48,338] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 09:48:48,387] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 09:48:49,019] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 09:48:51,022] [INFO] [transcriber] — Microphone ready. Energy threshold: 166.41875971144435
+[2026-04-26 09:48:53,111] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 09:48:54,093] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 09:48:54,094] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 09:48:54,096] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 09:48:54,098] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 09:48:54,099] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 09:48:54,106] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 09:48:56,471] [DEBUG] [_trace] — connect_tcp.started host='api.elevenlabs.io' port=443 local_address=None timeout=240 socket_options=None
+[2026-04-26 09:48:56,472] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 09:48:56,473] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 09:48:56,506] [DEBUG] [_trace] — connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000001B349D42270>
+[2026-04-26 09:48:56,506] [DEBUG] [_trace] — start_tls.started ssl_context=<ssl.SSLContext object at 0x000001B34D3F6DF0> server_hostname='api.elevenlabs.io' timeout=240
+[2026-04-26 09:48:56,535] [DEBUG] [_trace] — start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000001B349D3D450>
+[2026-04-26 09:48:56,535] [DEBUG] [_trace] — send_request_headers.started request=<Request [b'POST']>
+[2026-04-26 09:48:56,535] [DEBUG] [_trace] — send_request_headers.complete
+[2026-04-26 09:48:56,536] [DEBUG] [_trace] — send_request_body.started request=<Request [b'POST']>
+[2026-04-26 09:48:56,536] [DEBUG] [_trace] — send_request_body.complete
+[2026-04-26 09:48:56,536] [DEBUG] [_trace] — receive_response_headers.started request=<Request [b'POST']>
+[2026-04-26 09:48:57,049] [DEBUG] [_trace] — receive_response_headers.complete return_value=(b'HTTP/1.1', 401, b'Unauthorized', [(b'date', b'Sun, 26 Apr 2026 13:48:59 GMT'), (b'server', b'uvicorn'), (b'Content-Length', b'67'), (b'content-type', b'application/json'), (b'vary', b'Accept-Language'), (b'access-control-allow-origin', b'*'), (b'access-control-allow-headers', b'*'), (b'access-control-allow-methods', b'POST, PATCH, OPTIONS, DELETE, GET, PUT'), (b'access-control-max-age', b'600'), (b'Strict-Transport-Security', b'max-age=1800;'), (b'x-trace-id', b'94e2584480398b1f3d04fe530f7f5d22'), (b'x-region', b'us-central1'), (b'Via', b'1.1 google'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000')])
+[2026-04-26 09:48:57,051] [DEBUG] [overlay] — Main UI window shown: 318x481 at (1590,527)
+[2026-04-26 09:48:57,050] [INFO] [_client] — HTTP Request: POST https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM?output_format=mp3_44100_128 "HTTP/1.1 401 Unauthorized"
+[2026-04-26 09:48:57,052] [DEBUG] [_trace] — receive_response_body.started request=<Request [b'POST']>
+[2026-04-26 09:48:57,052] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 09:48:57,052] [DEBUG] [_trace] — receive_response_body.complete
+[2026-04-26 09:48:57,053] [DEBUG] [_trace] — response_closed.started
+[2026-04-26 09:48:57,053] [DEBUG] [_trace] — response_closed.complete
+[2026-04-26 09:48:57,054] [WARNING] [player] — ElevenLabs generation failed: headers: {'date': 'Sun, 26 Apr 2026 13:48:59 GMT', 'server': 'uvicorn', 'content-length': '67', 'content-type': 'application/json', 'vary': 'Accept-Language', 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, PATCH, OPTIONS, DELETE, GET, PUT', 'access-control-max-age': '600', 'strict-transport-security': 'max-age=1800;', 'x-trace-id': '94e2584480398b1f3d04fe530f7f5d22', 'x-region': 'us-central1', 'via': '1.1 google', 'alt-svc': 'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'}, status_code: 401, body: {'detail': {'status': 'invalid_api_key', 'message': 'Invalid API key'}}
+[2026-04-26 09:48:57,576] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 09:48:57,576] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 09:49:23,365] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:53:31,778] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 09:53:31,801] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:53:31,802] [DEBUG] [__init__] — interactive is False
+[2026-04-26 09:53:31,802] [DEBUG] [__init__] — platform is win32
+[2026-04-26 09:53:31,850] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:53:31,852] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 09:53:34,441] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 09:53:34,441] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 09:53:34,441] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 09:53:34,678] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 09:53:34,678] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 09:53:34,729] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 09:53:35,374] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 09:53:37,378] [INFO] [transcriber] — Microphone ready. Energy threshold: 169.1104527338076
+[2026-04-26 09:53:40,464] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 09:53:40,468] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 09:53:40,469] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 09:53:40,470] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 09:53:40,471] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 09:53:40,476] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 09:53:40,771] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 09:53:42,845] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 09:53:42,846] [DEBUG] [_trace] — connect_tcp.started host='api.elevenlabs.io' port=443 local_address=None timeout=240 socket_options=None
+[2026-04-26 09:53:42,847] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 09:53:42,918] [DEBUG] [_trace] — connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000002A840E32270>
+[2026-04-26 09:53:42,918] [DEBUG] [_trace] — start_tls.started ssl_context=<ssl.SSLContext object at 0x000002A8448B7ED0> server_hostname='api.elevenlabs.io' timeout=240
+[2026-04-26 09:53:43,054] [DEBUG] [_trace] — start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000002A8565525D0>
+[2026-04-26 09:53:43,054] [DEBUG] [_trace] — send_request_headers.started request=<Request [b'POST']>
+[2026-04-26 09:53:43,056] [DEBUG] [overlay] — Main UI window shown: 318x481 at (1590,527)
+[2026-04-26 09:53:43,057] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 09:53:43,058] [DEBUG] [_trace] — send_request_headers.complete
+[2026-04-26 09:53:43,058] [DEBUG] [_trace] — send_request_body.started request=<Request [b'POST']>
+[2026-04-26 09:53:43,058] [DEBUG] [_trace] — send_request_body.complete
+[2026-04-26 09:53:43,058] [DEBUG] [_trace] — receive_response_headers.started request=<Request [b'POST']>
+[2026-04-26 09:53:43,123] [DEBUG] [_trace] — receive_response_headers.complete return_value=(b'HTTP/1.1', 401, b'Unauthorized', [(b'date', b'Sun, 26 Apr 2026 13:53:46 GMT'), (b'server', b'uvicorn'), (b'Content-Length', b'67'), (b'content-type', b'application/json'), (b'vary', b'Accept-Language'), (b'access-control-allow-origin', b'*'), (b'access-control-allow-headers', b'*'), (b'access-control-allow-methods', b'POST, PATCH, OPTIONS, DELETE, GET, PUT'), (b'access-control-max-age', b'600'), (b'Strict-Transport-Security', b'max-age=1800;'), (b'x-trace-id', b'2b4f88a073fe03adb75be84deb7ed980'), (b'x-region', b'us-central1'), (b'Via', b'1.1 google'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000')])
+[2026-04-26 09:53:43,124] [INFO] [_client] — HTTP Request: POST https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM?output_format=mp3_44100_128 "HTTP/1.1 401 Unauthorized"
+[2026-04-26 09:53:43,124] [DEBUG] [_trace] — receive_response_body.started request=<Request [b'POST']>
+[2026-04-26 09:53:43,124] [DEBUG] [_trace] — receive_response_body.complete
+[2026-04-26 09:53:43,124] [DEBUG] [_trace] — response_closed.started
+[2026-04-26 09:53:43,124] [DEBUG] [_trace] — response_closed.complete
+[2026-04-26 09:53:43,126] [WARNING] [player] — ElevenLabs generation failed: headers: {'date': 'Sun, 26 Apr 2026 13:53:46 GMT', 'server': 'uvicorn', 'content-length': '67', 'content-type': 'application/json', 'vary': 'Accept-Language', 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, PATCH, OPTIONS, DELETE, GET, PUT', 'access-control-max-age': '600', 'strict-transport-security': 'max-age=1800;', 'x-trace-id': '2b4f88a073fe03adb75be84deb7ed980', 'x-region': 'us-central1', 'via': '1.1 google', 'alt-svc': 'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'}, status_code: 401, body: {'detail': {'status': 'invalid_api_key', 'message': 'Invalid API key'}}
+[2026-04-26 09:53:43,582] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 09:53:43,582] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 09:53:53,723] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 09:53:53,821] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:53:56,903] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:54:03,768] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:54:07,471] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:54:09,839] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:54:13,312] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:54:26,966] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:54:33,203] [INFO] [pipeline] — Pipeline: Interface UNLOCKED.
+[2026-04-26 09:54:37,142] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:54:40,723] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 09:54:40,725] [INFO] [gemini_agent] — [Heard]: transcribe
+[2026-04-26 09:54:40,917] [INFO] [transcriber] — [Voice Heard]: transcribe
+[2026-04-26 09:54:40,919] [INFO] [transcriber] — --> Trigger activated! Entering continuous dictation mode...
+[2026-04-26 09:54:40,920] [INFO] [transcriber] — Dictation mode active. Tracking paused. Say 'transcribe done' to exit.
+[2026-04-26 09:54:44,575] [INFO] [gemini_agent] — [Heard]: there was a dog
+[2026-04-26 09:54:44,733] [INFO] [transcriber] — Dictated Chunk: there was a dog
+[2026-04-26 09:54:49,452] [INFO] [transcriber] — Dictated Chunk: press enter
+[2026-04-26 09:54:50,401] [INFO] [gemini_agent] — [Heard]: press enter
+[2026-04-26 09:54:53,347] [INFO] [pipeline] — Pipeline: Interface UNLOCKED.
+[2026-04-26 09:54:55,895] [INFO] [gemini_agent] — [Heard]: okay so when it doesn't
+[2026-04-26 09:54:56,042] [INFO] [transcriber] — Dictated Chunk: okay so when it doesn't
+[2026-04-26 09:54:58,055] [INFO] [main] — 
+[!] Global hotkey Alt+Q pressed. Force Exiting...
+[2026-04-26 09:54:58,055] [INFO] [main] — Shutting down gracefully...
+[2026-04-26 09:56:45,322] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 09:56:45,345] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:56:45,347] [DEBUG] [__init__] — interactive is False
+[2026-04-26 09:56:45,347] [DEBUG] [__init__] — platform is win32
+[2026-04-26 09:56:45,390] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:56:45,392] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 09:56:47,934] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 09:56:47,934] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 09:56:47,934] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 09:56:48,173] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 09:56:48,173] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 09:56:48,222] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 09:56:48,861] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 09:56:50,864] [INFO] [transcriber] — Microphone ready. Energy threshold: 66.54852711221619
+[2026-04-26 09:56:52,953] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 09:56:53,956] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 09:56:53,957] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 09:56:53,959] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 09:56:53,959] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 09:56:53,960] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 09:56:53,963] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 09:56:56,330] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 09:56:56,331] [DEBUG] [_trace] — connect_tcp.started host='api.elevenlabs.io' port=443 local_address=None timeout=240 socket_options=None
+[2026-04-26 09:56:56,331] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 09:56:56,375] [DEBUG] [_trace] — connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000002E4FC41A3C0>
+[2026-04-26 09:56:56,375] [DEBUG] [_trace] — start_tls.started ssl_context=<ssl.SSLContext object at 0x000002E4FFEB7ED0> server_hostname='api.elevenlabs.io' timeout=240
+[2026-04-26 09:56:56,403] [DEBUG] [_trace] — start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000002E4FC4156D0>
+[2026-04-26 09:56:56,403] [DEBUG] [_trace] — send_request_headers.started request=<Request [b'POST']>
+[2026-04-26 09:56:56,404] [DEBUG] [_trace] — send_request_headers.complete
+[2026-04-26 09:56:56,404] [DEBUG] [_trace] — send_request_body.started request=<Request [b'POST']>
+[2026-04-26 09:56:56,404] [DEBUG] [_trace] — send_request_body.complete
+[2026-04-26 09:56:56,404] [DEBUG] [_trace] — receive_response_headers.started request=<Request [b'POST']>
+[2026-04-26 09:56:56,762] [DEBUG] [_trace] — receive_response_headers.complete return_value=(b'HTTP/1.1', 401, b'Unauthorized', [(b'date', b'Sun, 26 Apr 2026 13:57:00 GMT'), (b'server', b'uvicorn'), (b'Content-Length', b'67'), (b'content-type', b'application/json'), (b'vary', b'Accept-Language'), (b'access-control-allow-origin', b'*'), (b'access-control-allow-headers', b'*'), (b'access-control-allow-methods', b'POST, PATCH, OPTIONS, DELETE, GET, PUT'), (b'access-control-max-age', b'600'), (b'Strict-Transport-Security', b'max-age=1800;'), (b'x-trace-id', b'2b30bd0a661fa9789cbfabe0e479e9d5'), (b'x-region', b'us-central1'), (b'Via', b'1.1 google'), (b'Alt-Svc', b'h3=":443"; ma=2592000')])
+[2026-04-26 09:56:56,762] [INFO] [_client] — HTTP Request: POST https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM?output_format=mp3_44100_128 "HTTP/1.1 401 Unauthorized"
+[2026-04-26 09:56:56,763] [DEBUG] [_trace] — receive_response_body.started request=<Request [b'POST']>
+[2026-04-26 09:56:56,764] [DEBUG] [overlay] — Main UI window shown: 318x481 at (1590,527)
+[2026-04-26 09:56:56,765] [DEBUG] [_trace] — receive_response_body.complete
+[2026-04-26 09:56:56,765] [DEBUG] [_trace] — response_closed.started
+[2026-04-26 09:56:56,765] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 09:56:56,765] [DEBUG] [_trace] — response_closed.complete
+[2026-04-26 09:56:56,767] [WARNING] [player] — ElevenLabs generation failed: headers: {'date': 'Sun, 26 Apr 2026 13:57:00 GMT', 'server': 'uvicorn', 'content-length': '67', 'content-type': 'application/json', 'vary': 'Accept-Language', 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, PATCH, OPTIONS, DELETE, GET, PUT', 'access-control-max-age': '600', 'strict-transport-security': 'max-age=1800;', 'x-trace-id': '2b30bd0a661fa9789cbfabe0e479e9d5', 'x-region': 'us-central1', 'via': '1.1 google', 'alt-svc': 'h3=":443"; ma=2592000'}, status_code: 401, body: {'detail': {'status': 'invalid_api_key', 'message': 'Invalid API key'}}
+[2026-04-26 09:56:57,291] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 09:56:57,291] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 09:57:16,494] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:57:17,171] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 09:57:20,812] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:57:30,818] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:57:33,682] [INFO] [pipeline] — Pipeline: Interface UNLOCKED.
+[2026-04-26 09:57:45,939] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:57:46,552] [INFO] [main] — 
+[!] Global hotkey Alt+Q pressed. Force Exiting...
+[2026-04-26 09:57:46,553] [INFO] [main] — Shutting down gracefully...
+[2026-04-26 10:06:37,804] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 10:06:37,827] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 10:06:37,829] [DEBUG] [__init__] — interactive is False
+[2026-04-26 10:06:37,829] [DEBUG] [__init__] — platform is win32
+[2026-04-26 10:06:37,869] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 10:06:37,871] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 10:06:40,389] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 10:06:40,389] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 10:06:40,389] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 10:06:40,622] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 10:06:40,622] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 10:06:40,672] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 10:06:41,294] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 10:06:43,299] [INFO] [transcriber] — Microphone ready. Energy threshold: 66.72288618390162
+[2026-04-26 10:06:46,385] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 10:06:46,386] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 10:06:46,388] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 10:06:46,388] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 10:06:46,389] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 10:06:46,391] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 10:06:46,702] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 10:06:48,743] [DEBUG] [_trace] — connect_tcp.started host='api.elevenlabs.io' port=443 local_address=None timeout=240 socket_options=None
+[2026-04-26 10:06:48,743] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 10:06:48,744] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 10:06:48,818] [DEBUG] [_trace] — connect_tcp.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000001B287174C20>
+[2026-04-26 10:06:48,821] [DEBUG] [_trace] — start_tls.started ssl_context=<ssl.SSLContext object at 0x000001B2F5EFB250> server_hostname='api.elevenlabs.io' timeout=240
+[2026-04-26 10:06:49,263] [DEBUG] [_trace] — start_tls.complete return_value=<httpcore._backends.sync.SyncStream object at 0x000001B28717A490>
+[2026-04-26 10:06:49,264] [DEBUG] [overlay] — Main UI window shown: 337x523 at (1571,485)
+[2026-04-26 10:06:49,264] [DEBUG] [_trace] — send_request_headers.started request=<Request [b'POST']>
+[2026-04-26 10:06:49,265] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 10:06:49,266] [DEBUG] [_trace] — send_request_headers.complete
+[2026-04-26 10:06:49,266] [DEBUG] [_trace] — send_request_body.started request=<Request [b'POST']>
+[2026-04-26 10:06:49,267] [DEBUG] [_trace] — send_request_body.complete
+[2026-04-26 10:06:49,267] [DEBUG] [_trace] — receive_response_headers.started request=<Request [b'POST']>
+[2026-04-26 10:06:49,334] [DEBUG] [_trace] — receive_response_headers.complete return_value=(b'HTTP/1.1', 401, b'Unauthorized', [(b'date', b'Sun, 26 Apr 2026 14:06:52 GMT'), (b'server', b'uvicorn'), (b'Content-Length', b'67'), (b'content-type', b'application/json'), (b'vary', b'Accept-Language'), (b'access-control-allow-origin', b'*'), (b'access-control-allow-headers', b'*'), (b'access-control-allow-methods', b'POST, PATCH, OPTIONS, DELETE, GET, PUT'), (b'access-control-max-age', b'600'), (b'Strict-Transport-Security', b'max-age=1800;'), (b'x-trace-id', b'e759f0ce833eff236af52c9b4a32c8ae'), (b'x-region', b'us-central1'), (b'Via', b'1.1 google'), (b'Alt-Svc', b'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000')])
+[2026-04-26 10:06:49,335] [INFO] [_client] — HTTP Request: POST https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM?output_format=mp3_44100_128 "HTTP/1.1 401 Unauthorized"
+[2026-04-26 10:06:49,335] [DEBUG] [_trace] — receive_response_body.started request=<Request [b'POST']>
+[2026-04-26 10:06:49,335] [DEBUG] [_trace] — receive_response_body.complete
+[2026-04-26 10:06:49,336] [DEBUG] [_trace] — response_closed.started
+[2026-04-26 10:06:49,336] [DEBUG] [_trace] — response_closed.complete
+[2026-04-26 10:06:49,337] [WARNING] [player] — ElevenLabs generation failed: headers: {'date': 'Sun, 26 Apr 2026 14:06:52 GMT', 'server': 'uvicorn', 'content-length': '67', 'content-type': 'application/json', 'vary': 'Accept-Language', 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, PATCH, OPTIONS, DELETE, GET, PUT', 'access-control-max-age': '600', 'strict-transport-security': 'max-age=1800;', 'x-trace-id': 'e759f0ce833eff236af52c9b4a32c8ae', 'x-region': 'us-central1', 'via': '1.1 google', 'alt-svc': 'h3=":443"; ma=2592000,h3-29=":443"; ma=2592000'}, status_code: 401, body: {'detail': {'status': 'invalid_api_key', 'message': 'Invalid API key'}}
+[2026-04-26 10:06:49,784] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 10:06:49,785] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 10:07:07,877] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 10:07:08,515] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 10:07:09,825] [INFO] [pipeline] — Pipeline: Interface UNLOCKED.
+[2026-04-26 10:07:38,826] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 10:07:42,070] [INFO] [gemini_agent] — [Heard]: transcribe
+[2026-04-26 10:07:42,123] [INFO] [transcriber] — [Voice Heard]: transcribe
+[2026-04-26 10:07:42,123] [INFO] [transcriber] — --> Trigger activated! Entering continuous dictation mode...
+[2026-04-26 10:07:42,123] [INFO] [transcriber] — Dictation mode active. Tracking paused. Say 'transcribe done' to exit.
+[2026-04-26 10:07:47,871] [INFO] [transcriber] — Dictated Chunk: google.com
+[2026-04-26 10:07:47,985] [INFO] [gemini_agent] — [Heard]: google.com
+[2026-04-26 10:07:56,628] [INFO] [transcriber] — Dictated Chunk: how many type of dog breeds are there
+[2026-04-26 10:07:56,894] [INFO] [gemini_agent] — [Heard]: how many type of dog breeds are there
+[2026-04-26 10:08:05,146] [INFO] [gemini_agent] — [Heard]: press enter
+[2026-04-26 10:08:05,198] [INFO] [transcriber] — Dictated Chunk: press enter
+[2026-04-26 10:08:05,199] [INFO] [transcriber] — --> Keyboard command detected: press 'enter'
+[2026-04-26 10:08:13,706] [INFO] [gemini_agent] — [Heard]: transcribe done
+[2026-04-26 10:08:13,719] [INFO] [transcriber] — Dictated Chunk: transcribe done
+[2026-04-26 10:08:13,719] [INFO] [transcriber] — --> Exit phrase detected. Ending dictation...
+[2026-04-26 10:08:19,389] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 10:08:28,839] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 10:08:33,561] [INFO] [pipeline] — Pipeline: Interface UNLOCKED.
+[2026-04-26 10:08:34,798] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 10:08:36,815] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 10:08:38,844] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 10:08:40,789] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 10:08:40,857] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 10:08:50,265] [INFO] [pipeline] — Pipeline: Interface UNLOCKED.
+[2026-04-26 10:09:00,666] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 10:09:02,154] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 10:09:10,295] [INFO] [pipeline] — Pipeline: Interface UNLOCKED.
+[2026-04-26 10:09:15,758] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 10:09:49,847] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 10:09:50,739] [INFO] [main] — 
+[!] Global hotkey Alt+Q pressed. Force Exiting...
+[2026-04-26 10:09:50,739] [INFO] [main] — Shutting down gracefully...

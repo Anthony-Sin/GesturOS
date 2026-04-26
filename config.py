@@ -13,10 +13,16 @@ default_config = {
     # --- Cursor Engine ---
     "ACTIVE_ZONE_X_CENTER": 0.5,
     "ACTIVE_ZONE_Y_CENTER": 0.45,
+    # Always place cursor at screen center on startup for predictable default position.
+    "FORCE_CURSOR_CENTER_ON_START": True,
+    # Disable one-frame startup calibration (can bias position too high/low).
+    "AUTO_CENTER_ON_START": False,
 
     # FURTHER REDUCED: Minimal physical head movement required.
-    "ACTIVE_ZONE_WIDTH": 0.07,  
-    "ACTIVE_ZONE_HEIGHT": 0.05,
+    # Wider zones = slower movement. X intentionally slower per request.
+    "ACTIVE_ZONE_WIDTH": 0.11,
+    # Slightly taller zone to reduce vertical sensitivity and dead feeling.
+    "ACTIVE_ZONE_HEIGHT": 0.08,
 
     # HEAVILY REDUCED: Massive smoothing applied. Cursor will trail behind your head smoothly.
     "BASE_ALPHA": 0.03, 
@@ -50,6 +56,9 @@ default_config = {
     "MAGNETISM_TRIGGER_DISTANCE": 40,
     # Break out from magnetism without forcing head backtracking.
     "MAGNETISM_RELEASE_DISTANCE": 72,
+    # Sniper mode (voice-controlled magnetism) settings.
+    "SNIPER_SWITCH_THRESHOLD_PX": 60,
+    "SNIPER_CANDIDATE_DISTANCE": 70,
 
     # --- AI Models ---
     "LLM_FLASH_MODEL": "gemini-2.5-flash-lite",

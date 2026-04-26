@@ -11,5 +11,4 @@ pygame>=2.5.0
 mss>=10.0.0
 google-genai>=0.2.0
 python-dotenv>=1.0.0
-elevenlabs>=1.0.0
 pywin32>=306 ; sys_platform == 'win32'
