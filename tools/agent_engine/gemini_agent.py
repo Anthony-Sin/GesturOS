@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 
 import mss
 import pyautogui
+import pyperclip
+import platform
 import speech_recognition as sr
 from PIL import Image
 
@@ -106,17 +108,15 @@ class GeminiDesktopAgent(BaseBlindAgent):
                     # Strip wake word
                     command = text.replace("agent", "").strip()
 
-                    if "describe" in command and ("screen" in command or "page" in command):
-                        self._handle_describe()
-                    elif len(command) > 2:
-                        self._handle_agent_loop(command)
+                    if len(command) > 2:
+                        self._route_intent(command)
                     else:
                         self.speak("I am listening. Please give a command.")
                         # Listen again immediately for the actual command
                         with self.microphone as source:
                             audio = self.recognizer.listen(source, timeout=5, phrase_time_limit=15)
                         command = self.recognizer.recognize_google(audio).lower()
-                        self._handle_agent_loop(command)
+                        self._route_intent(command)
 
             except sr.WaitTimeoutError:
                 pass
@@ -126,6 +126,109 @@ class GeminiDesktopAgent(BaseBlindAgent):
                 print(f"Speech Service error: {e}")
             except Exception as e:
                 print(f"Agent Loop error: {e}")
+
+    def _route_intent(self, command):
+        """
+        Routes the command through a 3-tier intent system:
+        1. Hardcoded regex/string matching for zero-token local actions.
+        2. Gemini Flash (1.5) for translating simple instructions to literal PyAutoGUI code.
+        3. Full Gemini 2.5 Computer Use Agent for complex visual tasks.
+        """
+        print(f"[Intent Router] Processing: '{command}'")
+
+        # --- Tier 1: Hardcoded / Local Intents ---
+        if "what's focused" in command or "what is focused" in command or "where am i" in command or "what window" in command:
+            try:
+                title = "Unknown"
+                if platform.system() == "Windows":
+                    import pygetwindow as gw
+                    active_window = gw.getActiveWindow()
+                    title = active_window.title if active_window else "Unknown"
+                elif platform.system() == "Linux":
+                    try:
+                        from ewmh import EWMH
+                        ewmh = EWMH()
+                        active_window = ewmh.getActiveWindow()
+                        if active_window:
+                            title_bytes = ewmh.getWmName(active_window)
+                            title = title_bytes.decode('utf-8') if isinstance(title_bytes, bytes) else str(title_bytes)
+                    except ImportError:
+                        pass
+
+                self.speak(f"The currently focused window is: {title}")
+            except Exception as e:
+                self.speak("I could not determine the focused window.")
+            return
+
+        if any(phrase in command for phrase in ["read this", "what does this say", "read it to me", "summarize this page", "what is this page about"]):
+            self.speak("Reading...")
+            try:
+                # Copy all text from the active window to the clipboard
+                pyautogui.hotkey('ctrl', 'a')
+                time.sleep(0.1)
+                pyautogui.hotkey('ctrl', 'c')
+                time.sleep(0.1)
+
+                copied_text = pyperclip.paste()
+
+                if copied_text and copied_text.strip():
+                    if len(copied_text) > 1000: # Summarize if long
+                        prompt = f"Briefly summarize the following text for a blind user:\n\n{copied_text[:5000]}"
+                        try:
+                            response = self.client.models.generate_content(
+                                model='gemini-1.5-flash',
+                                contents=prompt
+                            )
+                            self.speak(response.text)
+                        except Exception as e:
+                            print(f"Summarization error: {e}")
+                            self.speak("I copied the text, but encountered an error summarizing it.")
+                    else:
+                        self.speak(copied_text)
+                else:
+                    self.speak("I could not find any text to read.")
+            except Exception as e:
+                print(f"Read intent error: {e}")
+                self.speak("Sorry, I could not read the text.")
+            return
+
+        if "describe" in command and ("screen" in command or "page" in command):
+            self._handle_describe()
+            return
+
+        # --- Tier 2: Gemini Flash PyAutoGUI Code Generation ---
+        if self.client:
+            flash_prompt = f"""
+You are a voice command translator. The user said: "{command}"
+If this command is a simple OS action (like scrolling, pressing a key, typing, going back), output ONLY literal Python code using the `pyautogui` library to execute it. Do not include markdown formatting, backticks, or explanations. Just the raw Python code.
+If the command requires seeing the screen to know where to click or what to interact with (e.g., "click the login button", "find my email", "open google chrome"), you MUST output exactly the word "FALLBACK" and nothing else.
+"""
+            try:
+                response = self.client.models.generate_content(
+                    model='gemini-1.5-flash',
+                    contents=flash_prompt
+                )
+                output = response.text.strip()
+
+                if output != "FALLBACK" and "pyautogui." in output:
+                    print(f"[Intent Router] Executing Flash Code: {output}")
+                    try:
+                        # Secure-ish local execution environment for pyautogui
+                        local_env = {'pyautogui': pyautogui, 'time': time}
+                        exec(output, {"__builtins__": {}}, local_env)
+                        # Optionally, add a subtle confirmation sound here if requested
+                        return
+                    except Exception as e:
+                        print(f"Failed to execute Flash code: {e}. Falling back.")
+                        # Fallthrough to Tier 3 on execution error
+                else:
+                    print(f"[Intent Router] Flash returned FALLBACK for command: '{command}'")
+            except Exception as e:
+                print(f"Flash Routing Error: {e}. Falling back.")
+
+        # --- Tier 3: Full Gemini 2.5 Computer Use Agent ---
+        print("[Intent Router] Routing to Full Gemini 2.5 Agent...")
+        self._handle_agent_loop(command)
 
     def _handle_describe(self):
         self.speak("Taking a look...")
