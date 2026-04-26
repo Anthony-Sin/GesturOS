@@ -89,16 +89,23 @@ class VisionPipeline(BaseVisionEngine):
                 if mean_diff < self.frame_diff_threshold:
                     should_process_mediapipe = False
 
-            if not should_process_mediapipe:
-                # Skip MediaPipe processing, update the last payload with the new frame and timestamp
-                payload = self.last_known_payload.copy()
-                payload['timestamp'] = timestamp_ms
-                payload['frame'] = cv2.flip(frame, 1)
+            landmarks = None
+            blendshape_dict = {}
+            nose_tip = None
 
-                try:
-                    self.data_queue.put_nowait(payload)
-                except queue.Full:
-                    pass
+            if not should_process_mediapipe:
+                # Skip MediaPipe processing, retrieve last known data
+                landmarks = self.last_known_payload['landmarks']
+                blendshape_dict = self.last_known_payload['blendshapes']
+                nose_tip_dict = self.last_known_payload['nose_tip']
+
+                # Mock a nose_tip object to pass into the locking logic below
+                class MockNoseTip:
+                    def __init__(self, d):
+                        self.x = d['x']
+                        self.y = d['y']
+                        self.z = d.get('z', 0)
+                nose_tip = MockNoseTip(nose_tip_dict)
             else:
                 # Convert the frame received from OpenCV to a MediaPipe’s Image object.
                 mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
@@ -107,16 +114,18 @@ class VisionPipeline(BaseVisionEngine):
 
                 if detection_result.face_landmarks:
                     landmarks = detection_result.face_landmarks[0]
-                blendshapes = detection_result.face_blendshapes[0] if detection_result.face_blendshapes else []
+                    blendshapes = detection_result.face_blendshapes[0] if detection_result.face_blendshapes else []
 
-                # Extract nose tip (landmark 1 is often used, sometimes 4 depending on the specific topology, we'll use 1)
-                # Note: MediaPipe coordinates are normalized [0.0, 1.0]
-                nose_tip = landmarks[1]
+                    # Extract nose tip (landmark 1 is often used, sometimes 4 depending on the specific topology, we'll use 1)
+                    # Note: MediaPipe coordinates are normalized [0.0, 1.0]
+                    nose_tip = landmarks[1]
 
-                # Extract relevant blendshapes into a fast dict
-                blendshape_dict = {cat.category_name: cat.score for cat in blendshapes}
+                    # Extract relevant blendshapes into a fast dict
+                    blendshape_dict = {cat.category_name: cat.score for cat in blendshapes}
 
+            if nose_tip is not None:
                 # --- Locking Mechanism Logic ---
+                # We calculate lock progression on EVERY frame, regardless of if MediaPipe was skipped or not
                 current_time = time.time()
 
                 lock_progress = 0.0
@@ -162,25 +171,25 @@ class VisionPipeline(BaseVisionEngine):
                             self.anchor_start_time = current_time
                             lock_progress = 0.0
 
-                    payload = {
-                        'timestamp': timestamp_ms,
-                        'nose_tip': {'x': nose_tip.x, 'y': nose_tip.y, 'z': nose_tip.z},
-                        'blendshapes': blendshape_dict,
-                        'landmarks': landmarks, # Passing all landmarks for the navigator to use
-                        'frame': cv2.flip(frame, 1), # Add a flipped copy of the frame for the UI
-                        'is_locked': self.is_locked,
-                        'lock_progress': lock_progress
-                    }
+                payload = {
+                    'timestamp': timestamp_ms,
+                    'nose_tip': {'x': nose_tip.x, 'y': nose_tip.y, 'z': nose_tip.z},
+                    'blendshapes': blendshape_dict,
+                    'landmarks': landmarks, # Passing all landmarks for the navigator to use
+                    'frame': cv2.flip(frame, 1), # Add a flipped copy of the frame for the UI
+                    'is_locked': self.is_locked,
+                    'lock_progress': lock_progress
+                }
 
-                    # Cache successful payload and frame for future diffing
-                    self.last_known_payload = payload
-                    self.previous_frame_gray = current_frame_gray
+                # Cache successful payload and frame for future diffing
+                self.last_known_payload = payload
+                self.previous_frame_gray = current_frame_gray
 
-                    # Non-blocking put
-                    try:
-                        self.data_queue.put_nowait(payload)
-                    except queue.Full:
-                        pass # Drop frame if queue is full to maintain real-time performance
+                # Non-blocking put
+                try:
+                    self.data_queue.put_nowait(payload)
+                except queue.Full:
+                    pass # Drop frame if queue is full to maintain real-time performance
 
             # Throttle to target FPS
             elapsed = time.time() - start_time

@@ -8,12 +8,12 @@ default_config = {
     # --- Cursor Engine ---
     # Raising active zone centers moves the start point to track head positioning.
     "ACTIVE_ZONE_X_CENTER": 0.5,
-    "ACTIVE_ZONE_Y_CENTER": 0.6,
+    "ACTIVE_ZONE_Y_CENTER": 0.45,
 
-    # Shrinking width/height makes the cursor move more distance per degree of head movement.
-    # We shrink these so the user needs very small head movements.
-    "ACTIVE_ZONE_WIDTH": 0.08,
-    "ACTIVE_ZONE_HEIGHT": 0.03,
+    # Enlarging width/height makes the cursor move less distance per degree of head movement.
+    # We enlarge these to drastically decrease sensitivity, forcing larger physical head movements.
+    "ACTIVE_ZONE_WIDTH": 0.25,
+    "ACTIVE_ZONE_HEIGHT": 0.15,
 
     # Lowering alpha increases smoothing so the cursor glides rather than snapping around.
     "BASE_ALPHA": 0.15,
@@ -29,7 +29,7 @@ default_config = {
 
     # Raising the duration threshold forces the user to deliberately hold their eyes shut,
     # preventing reflex blinks from triggering clicks.
-    "BLINK_DURATION_THRESHOLD": 0.30,
+    "BLINK_DURATION_THRESHOLD": 0.25,
 
     # Raising cooldown makes it physically impossible to double-fire a blink action unintentionally.
     "BLINK_COOLDOWN": 2.0,
