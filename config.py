@@ -2,6 +2,8 @@
 default_config = {
     # --- Vision Pipeline ---
     "TARGET_FPS": 30,
+    # Threshold for skipping MediaPipe processing on near-identical frames. Higher = more skips.
+    "FRAME_DIFF_THRESHOLD": 2.0,
 
     # --- Cursor Engine ---
     # Raising active zone centers moves the start point to track head positioning.

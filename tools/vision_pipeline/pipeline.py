@@ -1,5 +1,6 @@
 import cv2
 import mediapipe as mp
+import numpy as np
 import time
 import queue
 import urllib.request
@@ -48,6 +49,11 @@ class VisionPipeline(BaseVisionEngine):
         self.movement_threshold = self.config.get("LOCK_MOVEMENT_THRESHOLD", 0.025)
         self.breakout_threshold = self.config.get("LOCK_BREAKOUT_THRESHOLD", 0.12)
 
+        # Frame diffing optimization
+        self.frame_diff_threshold = self.config.get("FRAME_DIFF_THRESHOLD", 2.0)
+        self.previous_frame_gray = None
+        self.last_known_payload = None
+
     def start(self):
         self.running = True
         cap = cv2.VideoCapture(0)
@@ -67,16 +73,40 @@ class VisionPipeline(BaseVisionEngine):
                 print("Ignoring empty camera frame.")
                 continue
 
-            # Convert the frame received from OpenCV to a MediaPipe’s Image object.
-            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
             # The timestamp must be monotonically increasing.
             timestamp_ms = int(time.time() * 1000)
 
-            detection_result = self.detector.detect_for_video(mp_image, timestamp_ms)
+            # Frame Diffing Optimization
+            # Convert frame to grayscale for faster comparison
+            current_frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            if detection_result.face_landmarks:
-                landmarks = detection_result.face_landmarks[0]
+            should_process_mediapipe = True
+            if self.previous_frame_gray is not None and self.last_known_payload is not None:
+                # Calculate mean absolute difference between current and previous frame
+                diff = cv2.absdiff(current_frame_gray, self.previous_frame_gray)
+                mean_diff = np.mean(diff)
+
+                if mean_diff < self.frame_diff_threshold:
+                    should_process_mediapipe = False
+
+            if not should_process_mediapipe:
+                # Skip MediaPipe processing, update the last payload with the new frame and timestamp
+                payload = self.last_known_payload.copy()
+                payload['timestamp'] = timestamp_ms
+                payload['frame'] = cv2.flip(frame, 1)
+
+                try:
+                    self.data_queue.put_nowait(payload)
+                except queue.Full:
+                    pass
+            else:
+                # Convert the frame received from OpenCV to a MediaPipe’s Image object.
+                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+                detection_result = self.detector.detect_for_video(mp_image, timestamp_ms)
+
+                if detection_result.face_landmarks:
+                    landmarks = detection_result.face_landmarks[0]
                 blendshapes = detection_result.face_blendshapes[0] if detection_result.face_blendshapes else []
 
                 # Extract nose tip (landmark 1 is often used, sometimes 4 depending on the specific topology, we'll use 1)
@@ -132,21 +162,25 @@ class VisionPipeline(BaseVisionEngine):
                             self.anchor_start_time = current_time
                             lock_progress = 0.0
 
-                payload = {
-                    'timestamp': timestamp_ms,
-                    'nose_tip': {'x': nose_tip.x, 'y': nose_tip.y, 'z': nose_tip.z},
-                    'blendshapes': blendshape_dict,
-                    'landmarks': landmarks, # Passing all landmarks for the navigator to use
-                    'frame': cv2.flip(frame, 1), # Add a flipped copy of the frame for the UI
-                    'is_locked': self.is_locked,
-                    'lock_progress': lock_progress
-                }
+                    payload = {
+                        'timestamp': timestamp_ms,
+                        'nose_tip': {'x': nose_tip.x, 'y': nose_tip.y, 'z': nose_tip.z},
+                        'blendshapes': blendshape_dict,
+                        'landmarks': landmarks, # Passing all landmarks for the navigator to use
+                        'frame': cv2.flip(frame, 1), # Add a flipped copy of the frame for the UI
+                        'is_locked': self.is_locked,
+                        'lock_progress': lock_progress
+                    }
 
-                # Non-blocking put
-                try:
-                    self.data_queue.put_nowait(payload)
-                except queue.Full:
-                    pass # Drop frame if queue is full to maintain real-time performance
+                    # Cache successful payload and frame for future diffing
+                    self.last_known_payload = payload
+                    self.previous_frame_gray = current_frame_gray
+
+                    # Non-blocking put
+                    try:
+                        self.data_queue.put_nowait(payload)
+                    except queue.Full:
+                        pass # Drop frame if queue is full to maintain real-time performance
 
             # Throttle to target FPS
             elapsed = time.time() - start_time
