@@ -16,10 +16,10 @@ class ActionDispatcher(BaseActionDispatcher):
         self.last_blink_time = 0
 
         self.blink_start_time = None
-        self.blink_duration_threshold = self.config.get("BLINK_DURATION_THRESHOLD", 0.4)
+        self.blink_duration_threshold = self.config.get("BLINK_DURATION_THRESHOLD", 0.30)
 
         self.cooldown_blink = self.config.get("BLINK_COOLDOWN", 2.0)
-        self.blink_threshold = self.config.get("BLINK_THRESHOLD", 0.35)
+        self.blink_threshold = self.config.get("BLINK_THRESHOLD", 0.26)
 
     def start(self):
         self.running = True
