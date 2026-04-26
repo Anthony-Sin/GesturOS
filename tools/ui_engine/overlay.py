@@ -5,7 +5,19 @@ from PIL import Image, ImageTk, ImageDraw
 import collections
 import time
 import numpy as np
+import random
 from tools.interfaces import BaseUIEngine
+
+# --- COLOR PALETTE ---
+COLORS = {
+    "bg": "#000000",
+    "sidebar_bg": "#020202",
+    "yellow": "#fcee0a",
+    "blue": "#00f0ff",
+    "pink": "#ff003c",
+    "text_dim": "#555500",
+    "border": "#222200"
+}
 
 class UIOverlay(BaseUIEngine):
     def __init__(self, data_queue: queue.Queue, config: dict, shared_state: dict, audio_player):
@@ -20,190 +32,132 @@ class UIOverlay(BaseUIEngine):
         except tk.TclError:
             self.root = tk.Tk()
 
-        self.root.title("AccessiBot UI")
+        self.root.title("AccessiBot Neural Interface")
+        self.root.configure(bg=COLORS["bg"])
 
-        # Configuration & Styling
-        self.window_width = 300
+        self.window_width = 340
         self.cam_width = 280
         self.cam_height = 210
-
-        self.bg_color = "#000000"
-        self.border_color = "#FFFF00" # Yellow outline
-        self.text_color = "#00FFFF" # Cyan text
-        self.accent_color = "#FF004D" # Red accent
-        self.yellow_text = "#FFFF00"
 
         self.screen_width = self.root.winfo_screenwidth()
         self.screen_height = self.root.winfo_screenheight()
 
         self.root.attributes('-topmost', True)
         self.root.overrideredirect(True)
-        self.root.configure(bg=self.bg_color)
 
-        # Main Layout Frame with Thick Yellow Border
-        self.main_frame = tk.Frame(self.root, bg=self.bg_color, highlightbackground=self.border_color, highlightthickness=3)
+        # Main Outline Frame
+        self.main_frame = tk.Frame(self.root, bg=COLORS["bg"], highlightbackground=COLORS["border"], highlightthickness=2)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # --- Top Section: Currently Doing ---
-        self.top_frame = tk.Frame(self.main_frame, bg=self.bg_color)
-        self.top_frame.pack(fill=tk.X, padx=10, pady=(10, 5))
+        # --- A. Top Status Area ---
+        self.status_frame = tk.Frame(self.main_frame, bg=COLORS["bg"], height=60)
+        self.status_frame.pack(fill=tk.X)
 
-        self.lbl_currently_doing = tk.Label(self.top_frame, text="C U R R E N T L Y _ D O I N G", bg=self.bg_color, fg=self.text_color, font=("Courier", 10, "bold"))
+        self.sync_bar_bg = tk.Frame(self.status_frame, bg="#1a1a00", height=4)
+        self.sync_bar_bg.pack(fill=tk.X)
+        self.sync_bar_fg = tk.Frame(self.sync_bar_bg, bg=COLORS["yellow"], width=self.window_width - 10, height=4)
+        self.sync_bar_fg.place(x=0, y=0)
+
+        status_text_frame = tk.Frame(self.status_frame, bg=COLORS["bg"], padx=15, pady=5)
+        status_text_frame.pack(fill=tk.X)
+
+        self.lbl_currently_doing = tk.Label(status_text_frame, text="AWAITING COMMAND", fg=COLORS["blue"], bg=COLORS["bg"], font=("Courier", 8, "bold"))
         self.lbl_currently_doing.pack(side=tk.LEFT)
 
-        # Yellow separator line
-        tk.Frame(self.main_frame, bg=self.border_color, height=2).pack(fill=tk.X)
+        self.sync_label = tk.Label(status_text_frame, text="98.8%", fg=COLORS["yellow"], bg=COLORS["bg"], font=("Courier", 10, "italic bold"))
+        self.sync_label.pack(side=tk.RIGHT)
 
-        # --- Middle Section: Abilities / Info Squares ---
-        self.middle_frame = tk.Frame(self.main_frame, bg=self.bg_color)
-        self.middle_frame.pack(fill=tk.X)
+        # --- B. Activity Logs ---
+        self.log_frame = tk.Frame(self.main_frame, bg="#080800", pady=5, padx=15)
+        self.log_frame.pack(fill=tk.X)
+        self.logs = ["NEURAL LINK OPTIMIZING...", "SCANNING BIO-SIGNALS...", "ICE PROTECTION ACTIVE"]
+        self.log_labels = []
+        for msg in self.logs:
+            lbl = tk.Label(self.log_frame, text=f"» {msg}", fg=COLORS["yellow"], bg="#080800", font=("Courier", 8, "italic"), anchor="w", justify=tk.LEFT)
+            lbl.pack(fill=tk.X, pady=1)
+            self.log_labels.append(lbl)
 
-        # Left Column for Text
-        self.left_col = tk.Frame(self.middle_frame, bg=self.bg_color)
-        self.left_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # --- C. Camera View ---
+        self.cam_container = tk.Frame(self.main_frame, bg=COLORS["sidebar_bg"], padx=20, pady=10)
+        self.cam_container.pack(fill=tk.X)
 
-        # Vertical separator
-        self.vert_sep = tk.Frame(self.middle_frame, bg=self.border_color, width=3)
-        self.vert_sep.pack(side=tk.LEFT, fill=tk.Y)
-
-        # Right Column (Empty to match reference image)
-        self.right_col = tk.Frame(self.middle_frame, bg=self.bg_color)
-        self.right_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        # Force a minimum width on right col
-        self.right_col.columnconfigure(0, minsize=80)
-
-        def create_info_row(parent, text, is_last=False):
-            row = tk.Frame(parent, bg=self.bg_color)
-            row.pack(fill=tk.X, pady=8, padx=5)
-            # Red square
-            canvas = tk.Canvas(row, width=10, height=10, bg=self.bg_color, highlightthickness=0)
-            canvas.pack(side=tk.LEFT, padx=(0, 5))
-            canvas.create_rectangle(2, 2, 8, 8, fill=self.accent_color, outline="")
-            # Yellow text
-            tk.Label(row, text=text, bg=self.bg_color, fg=self.yellow_text, font=("Courier", 9, "italic", "bold")).pack(side=tk.LEFT)
-
-            if not is_last:
-                # Add horizontal separator inside the columns
-                tk.Frame(parent, bg=self.border_color, height=1).pack(fill=tk.X)
-
-        create_info_row(self.left_col, "PREDICTIVE MAGNETISM: SNAP")
-        create_info_row(self.left_col, "ELEVENLABS: TTS READY")
-        create_info_row(self.left_col, "SCANNING BIO-SIGNALS...", is_last=True)
-
-        # Add horizontal separators in right column to align
-        tk.Frame(self.right_col, bg=self.bg_color, height=27).pack()
-        tk.Frame(self.right_col, bg=self.border_color, height=1).pack(fill=tk.X)
-        tk.Frame(self.right_col, bg=self.bg_color, height=27).pack()
-        tk.Frame(self.right_col, bg=self.border_color, height=1).pack(fill=tk.X)
-
-        # Also there's a thick yellow line that crosses the ENTIRE middle frame between 2nd and 3rd row, let's just make the horizontal separators span both.
-
-        # Let's rebuild middle section closer to image. Image has:
-        # | Left Column                    | Right Column |
-        # | [ ] PREDICTIVE MAGNETISM       |              |
-        # | ------------------------------ | ------------ |
-        # | [ ] ELEVENLABS                 |              |
-        # =================================================   <- Thick line across everything
-        # | [ ] SCANNING BIO-SIGNALS       |              |
-
-        # Let's fix that layout
-
-        # Re-doing middle frame
-        self.middle_frame.destroy()
-
-        self.middle_frame = tk.Frame(self.main_frame, bg=self.bg_color)
-        self.middle_frame.pack(fill=tk.X)
-
-        # Top half of middle (Rows 1 and 2)
-        top_half = tk.Frame(self.middle_frame, bg=self.bg_color)
-        top_half.pack(fill=tk.X)
-
-        th_left = tk.Frame(top_half, bg=self.bg_color)
-        th_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        tk.Frame(top_half, bg=self.border_color, width=3).pack(side=tk.LEFT, fill=tk.Y)
-        th_right = tk.Frame(top_half, bg=self.bg_color, width=80)
-        th_right.pack(side=tk.LEFT, fill=tk.BOTH)
-
-        create_info_row(th_left, "PREDICTIVE MAGNETISM: SNAP", is_last=False)
-        create_info_row(th_left, "ELEVENLABS: TTS READY", is_last=True)
-        # Manually add horizontal lines in th_right to align
-        tk.Frame(th_right, bg=self.bg_color, height=33).pack()
-        tk.Frame(th_right, bg=self.border_color, height=1).pack(fill=tk.X)
-
-        # Thick cross line
-        tk.Frame(self.middle_frame, bg=self.border_color, height=3).pack(fill=tk.X)
-
-        # Bottom half of middle (Row 3)
-        bot_half = tk.Frame(self.middle_frame, bg=self.bg_color)
-        bot_half.pack(fill=tk.X)
-        bh_left = tk.Frame(bot_half, bg=self.bg_color)
-        bh_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        tk.Frame(bot_half, bg=self.border_color, width=3).pack(side=tk.LEFT, fill=tk.Y)
-        bh_right = tk.Frame(bot_half, bg=self.bg_color, width=80)
-        bh_right.pack(side=tk.LEFT, fill=tk.BOTH)
-
-        create_info_row(bh_left, "SCANNING BIO-SIGNALS...", is_last=True)
-
-        # Yellow separator line
-        tk.Frame(self.main_frame, bg=self.border_color, height=3).pack(fill=tk.X)
-
-        # --- Bottom Section: Webcam Feed ---
-        self.cam_frame = tk.Frame(self.main_frame, bg=self.bg_color, width=self.cam_width, height=self.cam_height)
-        self.cam_frame.pack(pady=10, padx=10)
-
-        self.canvas = tk.Canvas(self.cam_frame, width=self.cam_width, height=self.cam_height, bg=self.bg_color, highlightthickness=0)
+        self.canvas = tk.Canvas(self.cam_container, width=self.cam_width, height=self.cam_height, bg="black", highlightbackground=COLORS["yellow"], highlightthickness=2)
         self.canvas.pack()
-
         self.image_on_canvas = None
 
-        # --- Fullscreen Transparent Overlay for Targeting ---
-        self.targeting_overlay = tk.Toplevel(self.root)
-        self.targeting_overlay.title("Targeting Overlay")
-        self.targeting_overlay.attributes('-fullscreen', True)
-        self.targeting_overlay.attributes('-topmost', True)
-        # Use a specific color to be fully transparent
-        self.trans_color = '#000001'
-        self.targeting_overlay.attributes('-transparentcolor', self.trans_color)
-        self.targeting_overlay.configure(bg=self.trans_color)
-        self.targeting_overlay.overrideredirect(True)
+        # --- D. Capabilities Menu ---
+        menu_label = tk.Label(self.main_frame, text="NEURAL SUITE v1.0", fg=COLORS["yellow"], bg=COLORS["bg"], font=("Courier", 9, "bold"), pady=5)
+        menu_label.pack(fill=tk.X)
 
-        # Make click-through (Windows specific hack, but works nicely)
-        # If not on Windows, X11 requires specific shapes, but we will ignore clicks anyway since no buttons.
-        try:
-            # Try Windows specific click-through
-            import ctypes
-            from ctypes import wintypes
-            hwnd = self.targeting_overlay.winfo_id()
-            # GWL_EXSTYLE = -20, WS_EX_LAYERED = 0x00080000, WS_EX_TRANSPARENT = 0x00000020
-            # Let's set it if possible
-            ctypes.windll.user32.SetWindowLongW(hwnd, -20, ctypes.windll.user32.GetWindowLongW(hwnd, -20) | 0x00080000 | 0x00000020)
-        except Exception:
-            pass
+        self.capabilities_frame = tk.Frame(self.main_frame, bg=COLORS["sidebar_bg"], padx=15, pady=5)
+        self.capabilities_frame.pack(fill=tk.BOTH, expand=True)
 
-        self.targeting_canvas = tk.Canvas(self.targeting_overlay, bg=self.trans_color, highlightthickness=0)
-        self.targeting_canvas.pack(fill=tk.BOTH, expand=True)
+        abilities = [
+            ("NOSE TRACKING", "Cursor binding: Nose Tip"),
+            ("BLINK CLICK", "Wait: 0.25s -> L-Click"),
+            ("DICTATION", "Say 'transcribe me'"),
+            ("MAG MAGNETISM", "Real-time UI snapping"),
+            ("GEMINI AGENT", "Autonomous UI Control")
+        ]
+
+        for title, desc in abilities:
+            self._add_ability_card(title, desc)
 
         # State tracking for UI
         self.fps_queue = collections.deque(maxlen=30)
-        self.banner_message = ""
-        self.banner_start_time = 0
         self.last_voice_status = ""
+        self.bio_sync = 98.8
 
-        # Rect references
+        self.targeting_overlay = None
         self.magnet_rect_id = None
         self.agent_rect_id = None
 
-        # Update geometry and position after components are built
+        # Ensure window is fully rendered before setting location or overlays
         self.root.update_idletasks()
-        w = self.root.winfo_width()
-        h = self.root.winfo_height()
-        x = self.screen_width - w - 20
-        y = self.screen_height - h - 60
-        self.root.geometry(f"{w}x{h}+{x}+{y}")
+        self.root.geometry(f"{self.window_width}x{self.root.winfo_reqheight()}+{self.screen_width - self.window_width - 20}+{self.screen_height - self.root.winfo_reqheight() - 60}")
 
-    def trigger_banner(self, message):
-        self.banner_message = message
-        self.banner_start_time = time.time()
+        # Schedule the targeting overlay setup safely after main loop starts
+        self.root.after(200, self._setup_targeting_overlay)
+
+    def _add_ability_card(self, title, desc):
+        card = tk.Frame(self.capabilities_frame, bg="#0a0a00", pady=4, padx=10, highlightbackground="#1a1a00", highlightthickness=1)
+        card.pack(fill=tk.X, pady=2)
+        icon_box = tk.Label(card, text="◈", fg=COLORS["yellow"], bg="#151500", width=3, font=("Courier", 10))
+        icon_box.pack(side=tk.LEFT, padx=(0, 10))
+        text_f = tk.Frame(card, bg="#0a0a00")
+        text_f.pack(side=tk.LEFT, fill=tk.X)
+        tk.Label(text_f, text=title, fg=COLORS["yellow"], bg="#0a0a00", font=("Courier", 8, "bold")).pack(anchor="w")
+        tk.Label(text_f, text=desc, fg="#555500", bg="#0a0a00", font=("Courier", 6)).pack(anchor="w")
+
+    def _setup_targeting_overlay(self):
+        try:
+            self.targeting_overlay = tk.Toplevel(self.root)
+            self.targeting_overlay.title("Targeting Overlay")
+            self.targeting_overlay.attributes('-fullscreen', True)
+            self.targeting_overlay.attributes('-topmost', True)
+
+            self.trans_color = '#000001'
+            self.targeting_overlay.attributes('-transparentcolor', self.trans_color)
+            self.targeting_overlay.configure(bg=self.trans_color)
+            self.targeting_overlay.overrideredirect(True)
+
+            try:
+                import ctypes
+                hwnd = self.targeting_overlay.winfo_id()
+                ctypes.windll.user32.SetWindowLongW(hwnd, -20, ctypes.windll.user32.GetWindowLongW(hwnd, -20) | 0x00080000 | 0x00000020)
+            except Exception:
+                pass
+
+            self.targeting_canvas = tk.Canvas(self.targeting_overlay, bg=self.trans_color, highlightthickness=0)
+            self.targeting_canvas.pack(fill=tk.BOTH, expand=True)
+        except Exception as e:
+            print(f"Failed to initialize targeting overlay: {e}")
+
+    def trigger_log(self, message):
+        self.logs.pop(0)
+        self.logs.append(message)
+        for i, msg in enumerate(self.logs):
+            self.log_labels[i].config(text=f"» {msg}")
 
     def update_frame(self):
         try:
@@ -218,62 +172,87 @@ class UIOverlay(BaseUIEngine):
             self.fps_queue.append(current_time)
 
             # --- Draw Targeting Boxes ---
-            magnet_bbox = self.shared_state.get("magnet_target_bbox")
-            if magnet_bbox:
-                if self.magnet_rect_id:
-                    self.targeting_canvas.coords(self.magnet_rect_id, magnet_bbox[0], magnet_bbox[1], magnet_bbox[0]+magnet_bbox[2], magnet_bbox[1]+magnet_bbox[3])
+            if self.targeting_overlay:
+                magnet_bbox = self.shared_state.get("magnet_target_bbox")
+                if magnet_bbox:
+                    if self.magnet_rect_id:
+                        self.targeting_canvas.coords(self.magnet_rect_id, magnet_bbox[0], magnet_bbox[1], magnet_bbox[0]+magnet_bbox[2], magnet_bbox[1]+magnet_bbox[3])
+                    else:
+                        self.magnet_rect_id = self.targeting_canvas.create_rectangle(magnet_bbox[0], magnet_bbox[1], magnet_bbox[0]+magnet_bbox[2], magnet_bbox[1]+magnet_bbox[3], outline="#00FF00", width=3)
                 else:
-                    self.magnet_rect_id = self.targeting_canvas.create_rectangle(magnet_bbox[0], magnet_bbox[1], magnet_bbox[0]+magnet_bbox[2], magnet_bbox[1]+magnet_bbox[3], outline="#00FF00", width=3)
-            else:
-                if self.magnet_rect_id:
-                    self.targeting_canvas.delete(self.magnet_rect_id)
-                    self.magnet_rect_id = None
+                    if self.magnet_rect_id:
+                        self.targeting_canvas.delete(self.magnet_rect_id)
+                        self.magnet_rect_id = None
 
-            agent_bbox = self.shared_state.get("agent_target_bbox")
-            if agent_bbox:
-                if self.agent_rect_id:
-                    self.targeting_canvas.coords(self.agent_rect_id, agent_bbox[0], agent_bbox[1], agent_bbox[0]+agent_bbox[2], agent_bbox[1]+agent_bbox[3])
+                agent_bbox = self.shared_state.get("agent_target_bbox")
+                if agent_bbox:
+                    if self.agent_rect_id:
+                        self.targeting_canvas.coords(self.agent_rect_id, agent_bbox[0], agent_bbox[1], agent_bbox[0]+agent_bbox[2], agent_bbox[1]+agent_bbox[3])
+                    else:
+                        self.agent_rect_id = self.targeting_canvas.create_rectangle(agent_bbox[0], agent_bbox[1], agent_bbox[0]+agent_bbox[2], agent_bbox[1]+agent_bbox[3], outline="#FF0000", width=4)
                 else:
-                    self.agent_rect_id = self.targeting_canvas.create_rectangle(agent_bbox[0], agent_bbox[1], agent_bbox[0]+agent_bbox[2], agent_bbox[1]+agent_bbox[3], outline="#FF0000", width=4)
-            else:
-                if self.agent_rect_id:
-                    self.targeting_canvas.delete(self.agent_rect_id)
-                    self.agent_rect_id = None
+                    if self.agent_rect_id:
+                        self.targeting_canvas.delete(self.agent_rect_id)
+                        self.agent_rect_id = None
+
+            # --- Update Stats ---
+            doing = self.shared_state.get("currently_doing", "AWAITING COMMAND")
+            self.lbl_currently_doing.config(text=doing)
+
+            # Random jitter for Bio Sync
+            if random.random() > 0.8:
+                self.bio_sync = min(99.9, 98.0 + random.random() * 1.9)
+                self.sync_label.config(text=f"{self.bio_sync:.1f}%")
+
+            voice_status = self.shared_state.get("voice_status", "")
+            if voice_status != self.last_voice_status and voice_status:
+                self.trigger_log(voice_status)
+            self.last_voice_status = voice_status
 
             if payload:
                 frame = payload.get('frame')
                 if frame is not None:
-                    # Update label
-                    doing = self.shared_state.get("currently_doing", "AWAITING COMMAND")
-                    self.lbl_currently_doing.config(text=f"{doing}")
-
-                    # Resize frame to fit canvas
                     frame = cv2.resize(frame, (self.cam_width, self.cam_height))
-
-                    # Convert BGR to RGB
                     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                    # Draw UI Elements via OpenCV
-                    self._draw_overlays(frame_rgb, payload)
+                    # Draw Reticle and Text
+                    text = "ACCESSIBOT_LIVE"
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    scale = 0.4
+                    thickness = 1
+                    (text_width, text_height), _ = cv2.getTextSize(text, font, scale, thickness)
+                    text_x = (self.cam_width - text_width) // 2
+                    text_y = 20
+                    cv2.putText(frame_rgb, text, (text_x, text_y), font, scale, (255, 0, 0), thickness + 2) # Blue Glow
+                    cv2.putText(frame_rgb, text, (text_x, text_y), font, scale, (255, 240, 0), thickness) # Cyan inner
 
-                    # Apply rounded corners using PIL mask
+                    nose_tip = payload.get('nose_tip')
+                    if nose_tip:
+                        nx = int(nose_tip['x'] * self.cam_width)
+                        ny = int(nose_tip['y'] * self.cam_height)
+
+                        # Blue Crosshair
+                        cv2.line(frame_rgb, (nx - 10, ny), (nx + 10, ny), (255, 240, 0), 1) # Cyan
+                        cv2.line(frame_rgb, (nx, ny - 10), (nx, ny + 10), (255, 240, 0), 1)
+                        # Red center point
+                        cv2.circle(frame_rgb, (nx, ny), 3, (60, 0, 255), -1) # Pink
+
+                    # Yellow Box Corners
+                    c_len = 15
+                    c_thick = 2
+                    pad = 10
+                    color_corn = (10, 238, 252) # Yellow
+                    cv2.line(frame_rgb, (pad, pad), (pad + c_len, pad), color_corn, c_thick)
+                    cv2.line(frame_rgb, (pad, pad), (pad, pad + c_len), color_corn, c_thick)
+                    cv2.line(frame_rgb, (self.cam_width - pad, pad), (self.cam_width - pad - c_len, pad), color_corn, c_thick)
+                    cv2.line(frame_rgb, (self.cam_width - pad, pad), (self.cam_width - pad, pad + c_len), color_corn, c_thick)
+                    cv2.line(frame_rgb, (pad, self.cam_height - pad), (pad + c_len, self.cam_height - pad), color_corn, c_thick)
+                    cv2.line(frame_rgb, (pad, self.cam_height - pad), (pad, self.cam_height - pad - c_len), color_corn, c_thick)
+                    cv2.line(frame_rgb, (self.cam_width - pad, self.cam_height - pad), (self.cam_width - pad - c_len, self.cam_height - pad), color_corn, c_thick)
+                    cv2.line(frame_rgb, (self.cam_width - pad, self.cam_height - pad), (self.cam_width - pad, self.cam_height - pad - c_len), color_corn, c_thick)
+
                     img = Image.fromarray(frame_rgb)
-
-                    # Create rounded mask
-                    mask = Image.new('L', img.size, 0)
-                    draw = ImageDraw.Draw(mask)
-                    radius = 12
-                    draw.rounded_rectangle((0, 0, img.size[0], img.size[1]), radius=radius, fill=255)
-
-                    # Apply mask and background
-                    rounded_img = Image.new('RGBA', img.size, self.bg_color)
-                    rounded_img.paste(img, (0, 0), mask=mask)
-
-                    # Draw yellow border with rounded corners
-                    border_draw = ImageDraw.Draw(rounded_img)
-                    border_draw.rounded_rectangle((0, 0, img.size[0]-1, img.size[1]-1), radius=radius, outline=self.border_color, width=2)
-
-                    imgtk = ImageTk.PhotoImage(image=rounded_img)
+                    imgtk = ImageTk.PhotoImage(image=img)
 
                     if self.image_on_canvas is None:
                         self.image_on_canvas = self.canvas.create_image(0, 0, anchor=tk.NW, image=imgtk)
@@ -286,111 +265,6 @@ class UIOverlay(BaseUIEngine):
             print(f"UI Error: {e}")
 
         self.root.after(30, self.update_frame)
-
-    def _draw_overlays(self, frame, payload):
-        current_time = time.time()
-
-        # Draw Yellow Corner Brackets
-        c_len = 20
-        c_thick = 2
-        pad = 10
-        # Top Left
-        cv2.line(frame, (pad, pad), (pad + c_len, pad), (255, 255, 0), c_thick)
-        cv2.line(frame, (pad, pad), (pad, pad + c_len), (255, 255, 0), c_thick)
-        # Top Right
-        cv2.line(frame, (self.cam_width - pad, pad), (self.cam_width - pad - c_len, pad), (255, 255, 0), c_thick)
-        cv2.line(frame, (self.cam_width - pad, pad), (self.cam_width - pad, pad + c_len), (255, 255, 0), c_thick)
-        # Bottom Left
-        cv2.line(frame, (pad, self.cam_height - pad), (pad + c_len, self.cam_height - pad), (255, 255, 0), c_thick)
-        cv2.line(frame, (pad, self.cam_height - pad), (pad, self.cam_height - pad - c_len), (255, 255, 0), c_thick)
-        # Bottom Right
-        cv2.line(frame, (self.cam_width - pad, self.cam_height - pad), (self.cam_width - pad - c_len, self.cam_height - pad), (255, 255, 0), c_thick)
-        cv2.line(frame, (self.cam_width - pad, self.cam_height - pad), (self.cam_width - pad, self.cam_height - pad - c_len), (255, 255, 0), c_thick)
-
-        # Draw ACCESSIBOT_LIVE glowing cyan text in the center-top
-        text = "ACCESSIBOT_LIVE"
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        scale = 0.4
-        thickness = 1
-        (text_width, text_height), _ = cv2.getTextSize(text, font, scale, thickness)
-        text_x = (self.cam_width - text_width) // 2
-        text_y = pad + 15
-
-        # Glow effect
-        cv2.putText(frame, text, (text_x, text_y), font, scale, (0, 100, 100), thickness + 2)
-        cv2.putText(frame, text, (text_x, text_y), font, scale, (0, 255, 255), thickness)
-
-        # Crosshair, Nose
-        nose_tip = payload.get('nose_tip')
-        if nose_tip:
-            nx = int(nose_tip['x'] * self.cam_width)
-            ny = int(nose_tip['y'] * self.cam_height)
-
-            # High-tech crosshair (cyan rings with red diamond center)
-            color_ring = (0, 255, 255) # Cyan in RGB
-            color_center = (255, 0, 77) # Red Accent
-
-            # Draw Rings
-            cv2.circle(frame, (nx, ny), 15, color_ring, 1)
-            cv2.circle(frame, (nx, ny), 8, color_ring, 2)
-
-            # Draw Red Diamond
-            pts = np.array([[nx, ny - 4], [nx + 4, ny], [nx, ny + 4], [nx - 4, ny]], np.int32)
-            pts = pts.reshape((-1, 1, 2))
-            cv2.fillPoly(frame, [pts], color_center)
-
-        # Voice Status Monitoring
-        voice_status = self.shared_state.get("voice_status", "")
-        if voice_status != self.last_voice_status and voice_status:
-            self.trigger_banner(voice_status)
-        self.last_voice_status = voice_status
-
-        # Banner Sliding Logic
-        if self.banner_message:
-            elapsed = current_time - self.banner_start_time
-            banner_duration = 2.0
-            slide_duration = 0.2
-            banner_h = 24
-
-            if elapsed < banner_duration:
-                # Slide up y calculation
-                if elapsed < slide_duration:
-                    progress = elapsed / slide_duration
-                    banner_y = self.cam_height - int(banner_h * progress)
-                else:
-                    banner_y = self.cam_height - banner_h
-
-                # Alpha calculation for fading out
-                fade_start = banner_duration - 0.5
-                if elapsed > fade_start:
-                    alpha = max(0.0, 1.0 - (elapsed - fade_start) / 0.5)
-                else:
-                    alpha = 1.0
-
-                # Draw banner background on a copy to blend
-                overlay = frame.copy()
-                cv2.rectangle(overlay, (0, banner_y), (self.cam_width, self.cam_height), (30, 30, 30), -1)
-
-                # Top accent line
-                cv2.line(overlay, (0, banner_y), (self.cam_width, banner_y), (138, 43, 226), 1)
-
-                # Blend the banner background
-                cv2.addWeighted(overlay, alpha * 0.9, frame, 1.0 - (alpha * 0.9), 0, frame)
-
-                # Draw text
-                text_size = cv2.getTextSize(self.banner_message, cv2.FONT_HERSHEY_SIMPLEX, 0.35, 1)[0]
-                text_x = (self.cam_width - text_size[0]) // 2
-                text_y = banner_y + 16
-
-                # Hacky text opacity: If alpha < 1, blend a text overlay
-                if alpha == 1.0:
-                    cv2.putText(frame, self.banner_message, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
-                else:
-                    text_overlay = frame.copy()
-                    cv2.putText(text_overlay, self.banner_message, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
-                    cv2.addWeighted(text_overlay, alpha, frame, 1.0 - alpha, 0, frame)
-            else:
-                self.banner_message = ""
 
     def start(self):
         print("Starting UI Overlay...")

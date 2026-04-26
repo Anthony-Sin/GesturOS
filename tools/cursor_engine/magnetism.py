@@ -14,6 +14,7 @@ class TargetMagnetism(BaseMagnetismEngine):
         self.sct = mss.mss()
         self.search_radius = self.config.get("MAGNETISM_SEARCH_RADIUS", 150)
         self.trigger_distance = self.config.get("MAGNETISM_TRIGGER_DISTANCE", 40)
+        self.pull_strength = self.config.get("MAGNETISM_PULL_STRENGTH", 0.6)
 
     def start(self):
         self.running = True
@@ -28,10 +29,16 @@ class TargetMagnetism(BaseMagnetismEngine):
     def _run(self):
         while self.running:
             try:
-                # 1. Get current mouse position
-                mx, my = pyautogui.position()
+                # We need to evaluate based on where the user is actually pointing (raw nose mapped),
+                # NOT the current mouse position if it's already snapped, to avoid infinite locks.
 
-                # Define bounding box for the screenshot
+                # Fetch raw tracking coordinates (if available) or fallback to current mouse
+                raw_target = self.cursor_engine.shared_state.get("raw_nose_target")
+                if raw_target:
+                    mx, my = int(raw_target[0]), int(raw_target[1])
+                else:
+                    mx, my = pyautogui.position()
+
                 monitor = {
                     "top": max(0, my - self.search_radius),
                     "left": max(0, mx - self.search_radius),
@@ -39,13 +46,25 @@ class TargetMagnetism(BaseMagnetismEngine):
                     "height": self.search_radius * 2
                 }
 
-                # 2. Capture screen patch
                 sct_img = self.sct.grab(monitor)
-                # Convert to numpy array (BGRA) -> BGR -> Grayscale
                 img = np.array(sct_img)
-                gray = cv2.cvtColor(img, cv2.COLOR_BGRA2GRAY)
+                img = img[:, :, :3] # Drop alpha channel to convert BGRA to BGR
 
-                # 3. Detect UI elements
+                # We must filter out the green box we draw so it doesn't self-lock!
+                # The green box is #00FF00. We can mask out pure green before edge detection.
+                hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+                # Green in HSV: Hue ~60.
+                lower_green = np.array([50, 200, 200])
+                upper_green = np.array([70, 255, 255])
+                mask_green = cv2.inRange(hsv, lower_green, upper_green)
+                # Invert mask to keep non-green things
+                mask_non_green = cv2.bitwise_not(mask_green)
+
+                # Apply mask to image (turn green pixels black)
+                img_masked = cv2.bitwise_and(img, img, mask=mask_non_green)
+
+                gray = cv2.cvtColor(img_masked, cv2.COLOR_BGR2GRAY)
+
                 edges = cv2.Canny(gray, threshold1=50, threshold2=150)
                 kernel = np.ones((5, 15), np.uint8)
                 closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
@@ -76,12 +95,6 @@ class TargetMagnetism(BaseMagnetismEngine):
                 if best_rect:
                     abs_x = monitor["left"] + best_rect[0]
                     abs_y = monitor["top"] + best_rect[1]
-
-                    # Instead of calculating offset from CURRENT mouse (which causes feedback loop),
-                    # We pass the absolute target coordinate via shared state and let CursorEngine snap.
-                    # Or even simpler, calculate the offset from the BASE NOSE target.
-                    # But the easiest zero-latency fix is to just tell CursorEngine exactly where to snap.
-
                     target_cx = abs_x + (best_rect[2] / 2)
                     target_cy = abs_y + (best_rect[3] / 2)
 
