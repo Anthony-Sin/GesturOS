@@ -51,30 +51,30 @@ default_config = {
     # Disable one-frame startup calibration (can bias position too high/low).
     "AUTO_CENTER_ON_START": False,
 
-    # FURTHER REDUCED: Minimal physical head movement required.
-    # Wider zones = slower movement. X intentionally slower per request.
-    "ACTIVE_ZONE_WIDTH": 0.16,
-    # Slightly taller zone to reduce vertical sensitivity and dead feeling.
-    "ACTIVE_ZONE_HEIGHT": 0.13,
+    # ULTRA-SMALL ZONE: Barely any head movement required now.
+    "ACTIVE_ZONE_WIDTH": 0.065,
+    "ACTIVE_ZONE_HEIGHT": 0.055,
 
-    # HEAVILY REDUCED: Massive smoothing applied. Cursor will trail behind your head smoothly.
+    # HEAVIER SMOOTHING: Required to absorb the jitter from the tiny active zone.
     "BASE_ALPHA": 0.03, 
     "PRECISION_ALPHA": 0.01,
-    # OneEuro cursor filtering: tuned for responsiveness with controlled jitter.
-    "FILTER_MIN_CUTOFF": 1.75,
-    "FILTER_BETA_NORMAL": 0.13,
+    "FILTER_MIN_CUTOFF": 0.8,
+    "FILTER_BETA_NORMAL": 0.05,
     "FILTER_MIN_CUTOFF_LOCKED": 0.8,
     "FILTER_BETA_LOCKED": 0.02,
-    # Gradual sensitivity shaping: slower micro-movement around focus area.
-    "CURSOR_RESPONSE_EXPONENT_X": 2.25,
-    "CURSOR_RESPONSE_EXPONENT_Y": 2.45,
-    # Directional Y shaping: make downward movement easier while keeping top control stable.
-    "CURSOR_RESPONSE_EXPONENT_Y_UP": 2.45,
-    "CURSOR_RESPONSE_EXPONENT_Y_DOWN": 2.05,
+    
+    # HIGHER EXPONENTS: Keeps the center heavily controlled so it doesn't fly away.
+    "CURSOR_RESPONSE_EXPONENT_X": 2.15,
+    "CURSOR_RESPONSE_EXPONENT_Y": 2.20,
+    "CURSOR_RESPONSE_EXPONENT_Y_UP": 2.20,
+    "CURSOR_RESPONSE_EXPONENT_Y_DOWN": 2.25,
     "CURSOR_DOWNWARD_BOOST": 1.18,
-    "CURSOR_MICRO_GAIN": 0.22,
+    "CURSOR_MICRO_GAIN": 0.26,
     "CURSOR_MICRO_RADIUS": 0.46,
-    "CURSOR_PIXEL_DEADZONE": 1.6,
+    
+    # INCREASED PIXEL DEADZONE: Will totally ignore microscopic resting head shakes.
+    "CURSOR_PIXEL_DEADZONE": 4.5,
+    
     # Hard cap on per-frame movement to prevent jumpy cursor spikes.
     "CURSOR_MAX_STEP_PX": 55.0,
     # Anti-drift hold when head remains still near current cursor target.

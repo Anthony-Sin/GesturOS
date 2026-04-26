@@ -164,9 +164,7 @@ class AudioPlayer:
                     or os.getenv("JUDGE_INTRO_TEXT")
                     or (
                         "This is GesturOS, a hands free computer control system using nose tracking, blink and brow gestures, "
-                        "voice commands, and a supervised AI web agent. Calibration is starting now. Move the blue marker into each "
-                        "red circle and hold briefly until it advances. Keep your head relaxed and centered. To start dictation, "
-                        "say transcribe me or record me."
+                        "voice commands, and a supervised AI web agent. Calibration is starting now."
                     )
                 )
                 self.audio_cache_dir = os.path.join(os.getcwd(), "cache_audio")
