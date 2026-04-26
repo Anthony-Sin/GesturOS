@@ -56,6 +56,8 @@ class VoiceTranscriber(BaseVoiceEngine):
                 if any(word in text for word in wake_words):
                     print("--> Trigger activated! Entering continuous dictation mode...")
                     self._dictate()
+                elif text.startswith("press "):
+                    self._handle_keyboard_command(text)
 
             except sr.WaitTimeoutError:
                 # No speech detected within timeout, just continue loop
@@ -122,3 +124,38 @@ class VoiceTranscriber(BaseVoiceEngine):
 
         self.shared_state["dictation_active"] = False
         self.shared_state["voice_status"] = "Listening for 'transcribe me'..."
+
+    def _handle_keyboard_command(self, text):
+        key = text.replace("press ", "").strip()
+        print(f"--> Keyboard command detected: press '{key}'")
+        self.shared_state["voice_status"] = f"Pressed: {key}"
+
+        # Mapping spoken words to pyautogui keys
+        key_map = {
+            "enter": "enter",
+            "return": "enter",
+            "tab": "tab",
+            "space": "space",
+            "spacebar": "space",
+            "escape": "esc",
+            "escape key": "esc",
+            "backspace": "backspace",
+            "delete": "delete",
+            "up": "up",
+            "down": "down",
+            "left": "left",
+            "right": "right",
+            "windows": "win",
+            "super": "win",
+            "command": "command",
+            "option": "option",
+            "alt": "alt",
+            "control": "ctrl",
+            "shift": "shift"
+        }
+
+        target_key = key_map.get(key, key)
+        try:
+            pyautogui.press(target_key)
+        except Exception as e:
+            print(f"Could not press key '{target_key}': {e}")

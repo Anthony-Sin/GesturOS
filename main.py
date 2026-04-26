@@ -30,18 +30,22 @@ def init_dependencies():
         audio_player = None
     return config, shared_state, audio_player
 
-def launch_standard_mode():
+def launch_app():
+    print("""
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+""")
     config, shared_state, audio_player = init_dependencies()
 
-    # We use multiple queues to broadcast the data stream to all worker threads
-    # This decouples the vision processing loop from OS-execution commands.
     cursor_queue = queue.Queue(maxsize=5)
     action_queue = queue.Queue(maxsize=5)
     navigator_queue = queue.Queue(maxsize=5)
     ui_queue = queue.Queue(maxsize=5)
-
-    # A single master queue that the vision pipeline writes to.
-    # A broadcaster thread will read from this and duplicate to the workers.
     master_queue = queue.Queue(maxsize=5)
 
     pipeline = VisionPipeline(master_queue, config, shared_state)
@@ -49,125 +53,17 @@ def launch_standard_mode():
     action_dispatcher = ActionDispatcher(action_queue, config, shared_state, audio_player)
     system_navigator = SystemNavigator(navigator_queue, config, shared_state)
     ui_overlay = UIOverlay(ui_queue, config, shared_state, audio_player)
-
-    # Target Magnetism for UI Snapping
     target_magnetism = TargetMagnetism(cursor_engine, config)
 
-    # Optional Voice Transcriber
-    voice_transcriber = None
+    # Gemini Agent for complex tasks via Voice
+    agent = GeminiDesktopAgent(config, shared_state, audio_player)
+
+    # Voice Transcriber for dictation and simple keyboard controls
     try:
         voice_transcriber = VoiceTranscriber(config, shared_state, audio_player)
     except Exception as e:
         print(f"Warning: Could not initialize Voice Transcriber. Skipping. Error: {e}")
-
-    running = True
-
-    def shutdown():
-        nonlocal running
-        print('Shutting down gracefully...')
-        running = False
-        pipeline.stop()
-        cursor_engine.stop()
-        action_dispatcher.stop()
-        system_navigator.stop()
-        target_magnetism.stop()
-        if voice_transcriber:
-            voice_transcriber.stop()
-        ui_overlay.stop()
-
-    def signal_handler(sig, frame):
-        shutdown()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, signal_handler)
-
-    def on_activate_exit():
-        print("Global hotkey Alt+Q pressed. Exiting...")
-        shutdown()
-        # Tkinter mainloop is blocking the main thread, so we must exit aggressively or use root.quit()
-        # But we don't have direct access to root here easily, so we use sys.exit or let shutdown do its job
-        # os._exit is safe for forcefully killing multithreaded apps when Tkinter is involved.
-        import os
-        os._exit(0)
-
-    hotkey_listener = keyboard.GlobalHotKeys({
-        '<alt>+q': on_activate_exit
-    })
-    hotkey_listener.start()
-
-    def broadcaster():
-        while running:
-            try:
-                payload = master_queue.get(timeout=0.1)
-
-                # Broadcast payload to workers
-                # Use put_nowait to avoid blocking if a worker is slow
-                try: cursor_queue.put_nowait(payload)
-                except queue.Full: pass
-
-                try: action_queue.put_nowait(payload)
-                except queue.Full: pass
-
-                try: navigator_queue.put_nowait(payload)
-                except queue.Full: pass
-
-                try: ui_queue.put_nowait(payload)
-                except queue.Full: pass
-
-            except queue.Empty:
-                pass
-            except Exception as e:
-                if running:
-                    print(f"Broadcaster error: {e}")
-
-    # Start the broadcaster thread
-    broadcast_thread = threading.Thread(target=broadcaster, daemon=True)
-    broadcast_thread.start()
-
-    # Start vision pipeline in a background thread
-    pipeline_thread = threading.Thread(target=pipeline.start, daemon=True)
-    pipeline_thread.start()
-
-    # Start worker threads
-    cursor_engine.start()
-    action_dispatcher.start()
-    system_navigator.start()
-    target_magnetism.start()
-    if voice_transcriber:
-        voice_transcriber.start()
-
-    # Start UI (blocking call in main thread)
-    try:
-        ui_overlay.start()
-    except Exception as e:
-        print(f"UI encountered an error: {e}")
-    finally:
-        shutdown()
-
-    print("Application exited.")
-
-def launch_blind_mode():
-    config, shared_state, audio_player = init_dependencies()
-    print("Starting Blind Accessibility Mode...")
-
-    # The user specifically requested: "do not remove the ey things just add this"
-    # We must run the Standard Mode tracking + the Gemini Agent concurrently.
-
-    cursor_queue = queue.Queue(maxsize=5)
-    action_queue = queue.Queue(maxsize=5)
-    navigator_queue = queue.Queue(maxsize=5)
-    ui_queue = queue.Queue(maxsize=5)
-    master_queue = queue.Queue(maxsize=5)
-
-    pipeline = VisionPipeline(master_queue, config, shared_state)
-    cursor_engine = CursorEngine(cursor_queue, config, shared_state, audio_player)
-    action_dispatcher = ActionDispatcher(action_queue, config, shared_state, audio_player)
-    system_navigator = SystemNavigator(navigator_queue, config, shared_state)
-    ui_overlay = UIOverlay(ui_queue, config, shared_state, audio_player)
-    target_magnetism = TargetMagnetism(cursor_engine, config)
-
-    # Start the Gemini Agent alongside everything else
-    agent = GeminiDesktopAgent(config, shared_state, audio_player)
+        voice_transcriber = None
 
     running = True
 
@@ -181,6 +77,8 @@ def launch_blind_mode():
         system_navigator.stop()
         target_magnetism.stop()
         agent.stop()
+        if voice_transcriber:
+            voice_transcriber.stop()
         ui_overlay.stop()
 
     def signal_handler(sig, frame):
@@ -190,7 +88,7 @@ def launch_blind_mode():
     signal.signal(signal.SIGINT, signal_handler)
 
     def on_activate_exit():
-        print("Global hotkey Alt+Q pressed. Exiting...")
+        print("\n[!] Global hotkey Alt+Q pressed. Force Exiting...")
         shutdown()
         import os
         os._exit(0)
@@ -229,6 +127,8 @@ def launch_blind_mode():
     system_navigator.start()
     target_magnetism.start()
     agent.start()
+    if voice_transcriber:
+        voice_transcriber.start()
 
     # Start UI (blocking call in main thread)
     try:
@@ -239,27 +139,12 @@ def launch_blind_mode():
         shutdown()
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', type=str, choices=['standard', 'blind'], default='standard')
-    args = parser.parse_args()
-
-    if args.mode == 'standard':
-        launch_standard_mode()
-    elif args.mode == 'blind':
-        launch_blind_mode()
+    try:
+        launch_app()
+    except Exception as e:
+        print(f"\n[FATAL ERROR] AccessiBot encountered an unhandled exception: {e}")
+        print("Please check your configuration or dependencies and try again.")
+        sys.exit(1)
 
 if __name__ == '__main__':
-    # If run without arguments, use the native UI launcher
-    if len(sys.argv) == 1:
-        import launcher
-        selected_mode = launcher.show_launcher()
-
-        if selected_mode == 'standard':
-            launch_standard_mode()
-        elif selected_mode == 'blind':
-            launch_blind_mode()
-        else:
-            print("No mode selected. Exiting.")
-            sys.exit(0)
-    else:
-        main()
+    main()
