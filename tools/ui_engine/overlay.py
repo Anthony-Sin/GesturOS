@@ -4,7 +4,9 @@ import cv2
 from PIL import Image, ImageTk
 import collections
 import time
+import math
 from tools.interfaces import BaseUIEngine
+
 
 class UIOverlay(BaseUIEngine):
     def __init__(self, data_queue: queue.Queue, config: dict, shared_state: dict, audio_player):
@@ -38,6 +40,9 @@ class UIOverlay(BaseUIEngine):
         self.root.attributes('-topmost', True)
         self.root.overrideredirect(True)
 
+        # Translucency for the "glass" look
+        self.root.attributes('-alpha', 0.9)
+
         # Configure a sleek black background
         self.root.configure(bg='black')
 
@@ -46,7 +51,8 @@ class UIOverlay(BaseUIEngine):
         self.drag_y = 0
 
         # Create canvas to hold the HUD frame
-        self.canvas = tk.Canvas(self.root, width=self.window_width, height=self.window_height, bg='black', highlightthickness=0)
+        self.canvas = tk.Canvas(self.root, width=self.window_width,
+                                height=self.window_height, bg='black', highlightthickness=0)
         self.canvas.pack()
         self.image_on_canvas = None
 
@@ -59,6 +65,19 @@ class UIOverlay(BaseUIEngine):
 
         # Store blink status for visual feedback
         self.is_blinking = False
+
+        # Pulse animation variables
+        self.pulse_phase = 0.0
+        self.last_nose_pos = None
+        self.cursor_speed = 0.0
+
+        # Status banner variables
+        self.banner_message = ""
+        self.banner_start_time = 0.0
+
+        # State tracking for triggers
+        self.last_voice_status = ""
+        self.last_mode = ""
 
         # FPS Tracking
         self.fps_queue = collections.deque(maxlen=30)
@@ -76,8 +95,8 @@ class UIOverlay(BaseUIEngine):
         self.root.geometry(f"+{x}+{y}")
 
     def _draw_hud_corners(self, frame):
-        # Draw high-tech aesthetic corner brackets
-        color = (200, 200, 200)
+        # Draw high-tech aesthetic corner brackets (Neon Cyan)
+        color = (255, 255, 0)  # Cyan in BGR
         thickness = 2
         length = 20
         h, w = frame.shape[:2]
@@ -95,6 +114,59 @@ class UIOverlay(BaseUIEngine):
         cv2.line(frame, (w - 10, h - 10), (w - 10 - length, h - 10), color, thickness)
         cv2.line(frame, (w - 10, h - 10), (w - 10, h - 10 - length), color, thickness)
 
+        # Subtle Inner Brackets (Neon Green)
+        color_inner = (0, 255, 0)
+        inner_offset = 15
+        inner_length = 10
+        inner_thickness = 1
+
+        # Top-left
+        cv2.line(frame, (10+inner_offset, 10+inner_offset), (10+inner_offset +
+                 inner_length, 10+inner_offset), color_inner, inner_thickness)
+        cv2.line(frame, (10+inner_offset, 10+inner_offset), (10+inner_offset,
+                 10+inner_offset + inner_length), color_inner, inner_thickness)
+        # Top-right
+        cv2.line(frame, (w - 10 - inner_offset, 10+inner_offset), (w - 10 - inner_offset -
+                 inner_length, 10+inner_offset), color_inner, inner_thickness)
+        cv2.line(frame, (w - 10 - inner_offset, 10+inner_offset), (w - 10 - inner_offset,
+                 10+inner_offset + inner_length), color_inner, inner_thickness)
+        # Bottom-left
+        cv2.line(frame, (10+inner_offset, h - 10 - inner_offset), (10+inner_offset +
+                 inner_length, h - 10 - inner_offset), color_inner, inner_thickness)
+        cv2.line(frame, (10+inner_offset, h - 10 - inner_offset), (10+inner_offset,
+                 h - 10 - inner_offset - inner_length), color_inner, inner_thickness)
+        # Bottom-right
+        cv2.line(frame, (w - 10 - inner_offset, h - 10 - inner_offset), (w - 10 - inner_offset -
+                 inner_length, h - 10 - inner_offset), color_inner, inner_thickness)
+        cv2.line(frame, (w - 10 - inner_offset, h - 10 - inner_offset), (w - 10 - inner_offset,
+                 h - 10 - inner_offset - inner_length), color_inner, inner_thickness)
+
+    def _draw_icon(self, frame, x, y, icon_type, color=(0, 255, 0)):
+        # Draw simple geometric icons
+        if icon_type == "eye":
+            # Stylized eye
+            cv2.ellipse(frame, (x, y), (8, 5), 0, 0, 360, color, 1)
+            cv2.circle(frame, (x, y), 2, color, -1)
+        elif icon_type == "mic":
+            # Stylized microphone
+            cv2.rectangle(frame, (x-3, y-6), (x+3, y+2), color, 1)
+            cv2.circle(frame, (x, y-6), 3, color, 1)  # top curve
+            cv2.ellipse(frame, (x, y+2), (5, 4), 0, 0, 180, color, 1)  # bottom cup
+            cv2.line(frame, (x, y+6), (x, y+9), color, 1)  # stand
+            cv2.line(frame, (x-4, y+9), (x+4, y+9), color, 1)  # base
+        elif icon_type == "track":
+            # Stylized crosshair/target
+            cv2.circle(frame, (x, y), 6, color, 1)
+            cv2.line(frame, (x-8, y), (x-3, y), color, 1)
+            cv2.line(frame, (x+3, y), (x+8, y), color, 1)
+            cv2.line(frame, (x, y-8), (x, y-3), color, 1)
+            cv2.line(frame, (x, y+3), (x, y+8), color, 1)
+            cv2.circle(frame, (x, y), 1, color, -1)
+
+    def trigger_banner(self, message):
+        self.banner_message = message
+        self.banner_start_time = self.time_module.time()
+
     def update_frame(self):
         try:
             current_time = self.time_module.time()
@@ -109,42 +181,36 @@ class UIOverlay(BaseUIEngine):
                 frame = payload['frame']
                 nose_tip = payload['nose_tip']
                 blendshapes = payload['blendshapes']
-                landmarks = payload.get('landmarks', [])
 
                 # Check for full blink for visual feedback
                 blink_left = blendshapes.get('eyeBlinkLeft', 0.0)
                 blink_right = blendshapes.get('eyeBlinkRight', 0.0)
+                was_blinking = self.is_blinking
                 self.is_blinking = (blink_left > 0.65 and blink_right > 0.65)
+
+                if self.is_blinking and not was_blinking:
+                    self.trigger_banner("[*] Clicked")
 
                 # Resize frame to fit the window
                 frame = cv2.resize(frame, (self.window_width, self.window_height))
 
+                # Make the frame darker/sleeker for neon aesthetic
+                frame = cv2.convertScaleAbs(frame, alpha=0.5, beta=-20)
+
                 # The pipeline provides normalized coordinates.
-                # Since we flipped the frame in the pipeline, we must flip the x coordinate for drawing.
                 draw_x = int((1.0 - nose_tip['x']) * self.window_width)
                 draw_y = int(nose_tip['y'] * self.window_height)
 
+                # Calculate cursor speed for animated ring
+                if self.last_nose_pos:
+                    dx = draw_x - self.last_nose_pos[0]
+                    dy = draw_y - self.last_nose_pos[1]
+                    speed = (dx**2 + dy**2)**0.5
+                    # Smooth speed
+                    self.cursor_speed = self.cursor_speed * 0.8 + speed * 0.2
+                self.last_nose_pos = (draw_x, draw_y)
+
                 self.path_points.append((draw_x, draw_y))
-
-                # Extract eye landmarks for visual tracking
-                # MediaPipe Landmark 159 is top of right eye, 145 is bottom (user's right, camera left if flipped)
-                # MediaPipe Landmark 386 is top of left eye, 374 is bottom
-                # We'll use 468 (Left Iris) and 473 (Right Iris) if available, or fallback to center of eye corners.
-                # Standard face mesh has left eye center ~ 159/145 area. Let's use 33 (left corner) and 263 (right corner) for simple position.
-
-                if landmarks and len(landmarks) > 263:
-                    # User's Left Eye (Right side of flipped camera frame)
-                    left_eye_lm = landmarks[33]
-                    left_eye_x = int((1.0 - left_eye_lm.x) * self.window_width)
-                    left_eye_y = int(left_eye_lm.y * self.window_height)
-
-                    # User's Right Eye (Left side of flipped camera frame)
-                    right_eye_lm = landmarks[263]
-                    right_eye_x = int((1.0 - right_eye_lm.x) * self.window_width)
-                    right_eye_y = int(right_eye_lm.y * self.window_height)
-                else:
-                    left_eye_x, left_eye_y = -1, -1
-                    right_eye_x, right_eye_y = -1, -1
 
                 # Draw the path on the frame (Sleeker trailing effect)
                 if len(self.path_points) > 1:
@@ -152,86 +218,150 @@ class UIOverlay(BaseUIEngine):
                     for i in range(1, len(pts)):
                         # Fade out the tail
                         alpha = i / len(pts)
-                        color = (int(0 * alpha), int(255 * alpha), int(255 * alpha)) # Cyan tail
-                        cv2.line(frame, pts[i-1], pts[i], color, max(1, int(3*alpha)))
+                        color = (int(0 * alpha), int(255 * alpha), int(255 * alpha))  # Cyan tail
+                        cv2.line(frame, pts[i-1], pts[i], color, max(1, int(2*alpha)))
 
-                # Draw a high-tech crosshair at the current nose tip instead of a dot
+                # Draw Animated Pulsing Ring around crosshair
+                # Speed determines pulse rate and color
+                if self.cursor_speed > 3.0:
+                    # Fast pulse, Cyan
+                    self.pulse_phase += 0.3
+                    ring_color = (255, 255, 0)
+                else:
+                    # Slow pulse, Green
+                    self.pulse_phase += 0.05
+                    ring_color = (0, 255, 0)
+
+                ring_radius = 12 + int(4 * math.sin(self.pulse_phase))
+                cv2.circle(frame, (draw_x, draw_y), ring_radius, ring_color, 1)
+
+                # Draw a high-tech crosshair
                 cross_color = (0, 0, 255) if self.is_blinking else (0, 255, 255)
-                cv2.line(frame, (draw_x - 10, draw_y), (draw_x + 10, draw_y), cross_color, 1)
-                cv2.line(frame, (draw_x, draw_y - 10), (draw_x, draw_y + 10), cross_color, 1)
-                cv2.circle(frame, (draw_x, draw_y), 4, cross_color, 1)
+                cv2.line(frame, (draw_x - 6, draw_y), (draw_x + 6, draw_y), cross_color, 1)
+                cv2.line(frame, (draw_x, draw_y - 6), (draw_x, draw_y + 6), cross_color, 1)
+                cv2.circle(frame, (draw_x, draw_y), 2, cross_color, -1)
 
-                # Eye Tracking Status Text & Colors
-                # The prompt requested Right Click when *both* eyes close, which we implemented.
-                # Here we just track individual status for the UI.
-                left_closed = blink_left > 0.45
-                right_closed = blink_right > 0.45
-
-                left_status = "CLOSED" if left_closed else "OPEN"
-                right_status = "CLOSED" if right_closed else "OPEN"
-
-                # Draw Visual Eye Tracking Overlays
-                if left_eye_x != -1 and left_eye_y != -1:
-                    l_color = (0, 0, 255) if left_closed else (0, 255, 0)
-                    cv2.circle(frame, (left_eye_x, left_eye_y), 6, l_color, 2)
-
-                if right_eye_x != -1 and right_eye_y != -1:
-                    r_color = (0, 0, 255) if right_closed else (0, 255, 0)
-                    cv2.circle(frame, (right_eye_x, right_eye_y), 6, r_color, 2)
-
-                # Make the frame slightly darker/sleeker
-                frame = cv2.convertScaleAbs(frame, alpha=0.8, beta=10)
+                # Draw HUD Corners
                 self._draw_hud_corners(frame)
 
-                # Modern aesthetic text and elements
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                cv2.putText(frame, f"L-EYE: {left_status}", (20, 30), font, 0.4, (0, 255, 0) if left_status=="OPEN" else (0, 0, 255), 1)
-                cv2.putText(frame, f"R-EYE: {right_status}", (20, 50), font, 0.4, (0, 255, 0) if right_status=="OPEN" else (0, 0, 255), 1)
+                # Centered Glowing Title
+                title = "ACCESSIBOT"
+                title_size = cv2.getTextSize(title, cv2.FONT_HERSHEY_DUPLEX, 0.6, 1)[0]
+                title_x = (self.window_width - title_size[0]) // 2
+                title_y = 25
+                # Glow effect
+                cv2.putText(frame, title, (title_x, title_y), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 0), 3)
+                cv2.putText(frame, title, (title_x, title_y), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
 
-                if self.is_blinking:
-                    cv2.putText(frame, "LEFT CLICK", (180, 40), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 255), 1)
+                # Active States
+                # Determine state
+                voice_status = self.shared_state.get("voice_status", "")
+                mode = self.config.get("MODE", "hands_free")
 
-                # FPS Calculation and Render
+                # Check for state changes to trigger banner
+                if "DICTATING" in voice_status and "DICTATING" not in self.last_voice_status:
+                    self.trigger_banner("[mic] Dictating...")
+                elif "DICTATING" not in voice_status and "DICTATING" in self.last_voice_status:
+                    self.trigger_banner("[mic] Dictation Ended")
+                self.last_voice_status = voice_status
+
+                if mode == "blind" and self.last_mode != "blind":
+                    self.trigger_banner("[eye] Blind Mode Active")
+                elif mode == "hands_free" and self.last_mode != "hands_free" and self.last_mode != "":
+                    self.trigger_banner("[track] Tracking Active")
+                self.last_mode = mode
+
+                if "DICTATING" in voice_status:
+                    self._draw_icon(frame, 20, 20, "mic", (0, 255, 255))
+                    cv2.putText(frame, "DICTATING", (30, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 255), 1)
+                elif mode == "blind":
+                    self._draw_icon(frame, 20, 20, "eye", (0, 255, 0))
+                    cv2.putText(frame, "BLIND MODE", (30, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1)
+                else:
+                    self._draw_icon(frame, 20, 20, "track", (0, 255, 0))
+                    cv2.putText(frame, "TRACKING", (30, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 0), 1)
+
+                # FPS Calculation and Render (Small, bottom right)
                 if len(self.fps_queue) > 1:
                     time_diff = self.fps_queue[-1] - self.fps_queue[0]
                     if time_diff > 0:
                         fps = len(self.fps_queue) / time_diff
-                        cv2.putText(frame, f"FPS: {fps:.1f}", (self.window_width - 80, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
-
-                # Voice Transcriber Status
-                voice_status = self.shared_state.get("voice_status", "")
-                if voice_status:
-                    color = (0, 255, 255) if "DICTATING" in voice_status else (200, 200, 200)
-                    cv2.putText(frame, voice_status, (20, self.window_height - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.35, color, 1)
+                        cv2.putText(frame, f"{fps:.0f} FPS", (self.window_width - 45,
+                                    self.window_height - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (100, 100, 100), 1)
 
                 # Draw Drag-Lock Status & Progress
                 is_locked = payload.get('is_locked', False)
                 lock_progress = payload.get('lock_progress', 0.0)
 
                 if is_locked:
-                    cv2.putText(frame, "[ DRAGGING MODE ACTIVE ]", (50, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 100), 1)
+                    cv2.putText(frame, "[ DRAGGING ]", (self.window_width//2 - 40, 45),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 100), 1)
                 elif lock_progress > 0.0:
-                    # Play subtle tick sounds as progress increases
                     now = self.time_module.time()
                     if lock_progress > 0.1 and now - self.last_tick_time > 0.4:
+                        from tools.audio_engine.player import AudioPlayer
                         AudioPlayer().play('lock_progress')
                         self.last_tick_time = now
 
                     # Draw a loading bar for lock progress
-                    bar_w = 100
-                    bar_h = 10
+                    bar_w = 60
+                    bar_h = 4
                     start_x = self.window_width // 2 - bar_w // 2
-                    start_y = self.window_height - 30
+                    start_y = 40
 
                     # Background
                     cv2.rectangle(frame, (start_x, start_y), (start_x + bar_w, start_y + bar_h), (50, 50, 50), -1)
                     # Foreground
-                    cv2.rectangle(frame, (start_x, start_y), (start_x + int(bar_w * lock_progress), start_y + bar_h), (0, 255, 255), -1)
-                    # Border
-                    cv2.rectangle(frame, (start_x, start_y), (start_x + bar_w, start_y + bar_h), (200, 200, 200), 1)
+                    cv2.rectangle(frame, (start_x, start_y), (start_x + int(bar_w *
+                                  lock_progress), start_y + bar_h), (0, 255, 0), -1)
 
-                    font = cv2.FONT_HERSHEY_SIMPLEX
-                    cv2.putText(frame, "HOLD STILL TO DRAG", (start_x - 10, start_y - 5), font, 0.35, (200, 200, 200), 1)
+                # Status Banner (Slide up and fade out)
+                if self.banner_message:
+                    elapsed = current_time - self.banner_start_time
+                    banner_duration = 2.0
+                    slide_duration = 0.3
+
+                    if elapsed < banner_duration:
+                        # Calculate y position (slide up from bottom)
+                        if elapsed < slide_duration:
+                            # Sliding up
+                            progress = elapsed / slide_duration
+                            banner_y = self.window_height - int(30 * progress)
+                        else:
+                            banner_y = self.window_height - 30
+
+                        # Calculate opacity (fade out in last 0.5s)
+                        fade_start = banner_duration - 0.5
+                        if elapsed > fade_start:
+                            alpha = 1.0 - (elapsed - fade_start) / 0.5
+                        else:
+                            alpha = 1.0
+
+                        # Draw banner background
+                        overlay = frame.copy()
+                        cv2.rectangle(overlay, (0, banner_y), (self.window_width, self.window_height), (20, 20, 20), -1)
+                        # Top border
+                        cv2.line(overlay, (0, banner_y), (self.window_width, banner_y), (0, 255, 0), 1)
+
+                        # Apply semi-transparent overlay
+                        cv2.addWeighted(overlay, alpha * 0.8, frame, 1.0 - (alpha * 0.8), 0, frame)
+
+                        # Draw text
+                        text_size = cv2.getTextSize(self.banner_message, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)[0]
+                        text_x = (self.window_width - text_size[0]) // 2
+                        text_y = banner_y + 18
+
+                        # Draw with opacity approximation (by merging)
+                        if alpha == 1.0:
+                            cv2.putText(frame, self.banner_message, (text_x, text_y),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+                        else:
+                            text_overlay = frame.copy()
+                            cv2.putText(text_overlay, self.banner_message, (text_x, text_y),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+                            cv2.addWeighted(text_overlay, alpha, frame, 1.0 - alpha, 0, frame)
+                    else:
+                        self.banner_message = ""
 
                 # Convert frame to PhotoImage
                 # Convert BGR to RGB for PIL
