@@ -1,0 +1,338 @@
+[2026-04-26 08:44:31,324] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 08:44:31,351] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 08:44:31,352] [DEBUG] [__init__] — interactive is False
+[2026-04-26 08:44:31,352] [DEBUG] [__init__] — platform is win32
+[2026-04-26 08:44:31,401] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 08:44:31,403] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 08:44:34,223] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 08:44:34,224] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 08:44:34,224] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 08:44:34,225] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 08:44:34,225] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 08:44:34,367] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 08:44:34,367] [WARNING] [gemini_agent] — GEMINI_API_KEY not found in .env. Agent will not work.
+[2026-04-26 08:44:34,707] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 08:44:36,711] [INFO] [transcriber] — Microphone ready. Energy threshold: 52.38227702328829
+[2026-04-26 08:44:39,791] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 08:44:39,792] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 08:44:39,793] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 08:44:39,794] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 08:44:39,794] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 08:44:39,795] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 08:44:40,242] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 08:44:42,172] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 08:44:42,172] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 08:44:42,386] [DEBUG] [overlay] — Main UI window shown: 306x335 at (1593,624)
+[2026-04-26 08:44:42,387] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 08:44:42,910] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 08:44:42,910] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 08:44:55,471] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 08:45:17,404] [INFO] [pipeline] — Pipeline: Interface UNLOCKED.
+[2026-04-26 08:45:28,962] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 08:45:42,154] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 08:45:42,514] [INFO] [main] — 
+[!] Global hotkey Alt+Q pressed. Force Exiting...
+[2026-04-26 08:45:42,514] [INFO] [main] — Shutting down gracefully...
+[2026-04-26 08:48:54,486] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 08:48:54,510] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 08:48:54,511] [DEBUG] [__init__] — interactive is False
+[2026-04-26 08:48:54,511] [DEBUG] [__init__] — platform is win32
+[2026-04-26 08:48:54,554] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 08:48:54,555] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 08:48:57,099] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 08:48:57,100] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 08:48:57,100] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 08:48:57,100] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 08:48:57,101] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 08:48:57,151] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 08:48:57,152] [WARNING] [gemini_agent] — GEMINI_API_KEY not found in .env. Agent will not work.
+[2026-04-26 08:48:57,438] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 08:48:59,443] [INFO] [transcriber] — Microphone ready. Energy threshold: 49.52581873529345
+[2026-04-26 08:49:01,978] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 08:49:02,517] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 08:49:02,520] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 08:49:02,524] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 08:49:02,527] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 08:49:02,527] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 08:49:02,528] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 08:49:04,880] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 08:49:04,880] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 08:49:04,997] [DEBUG] [overlay] — Main UI window shown: 306x335 at (1593,624)
+[2026-04-26 08:49:04,997] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 08:49:05,516] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 08:49:05,516] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 08:49:25,703] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 08:49:28,077] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 08:49:28,267] [INFO] [main] — 
+[!] Global hotkey Alt+Q pressed. Force Exiting...
+[2026-04-26 08:49:28,267] [INFO] [main] — Shutting down gracefully...
+[2026-04-26 08:52:00,618] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 08:52:00,643] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 08:52:00,644] [DEBUG] [__init__] — interactive is False
+[2026-04-26 08:52:00,644] [DEBUG] [__init__] — platform is win32
+[2026-04-26 08:52:00,685] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 08:52:00,687] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 08:52:03,216] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 08:52:03,216] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 08:52:03,217] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 08:52:03,217] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 08:52:03,218] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 08:52:03,266] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 08:52:03,266] [WARNING] [gemini_agent] — GEMINI_API_KEY not found in .env. Agent will not work.
+[2026-04-26 08:52:03,538] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 08:52:05,542] [INFO] [transcriber] — Microphone ready. Energy threshold: 48.358853347002096
+[2026-04-26 08:52:07,985] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 08:52:08,630] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 08:52:08,632] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 08:52:08,633] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 08:52:08,634] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 08:52:08,634] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 08:52:08,634] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 08:52:10,996] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 08:52:10,997] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 08:52:11,861] [DEBUG] [overlay] — Main UI window shown: 318x494 at (1589,513)
+[2026-04-26 08:52:11,863] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 08:52:12,381] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 08:52:12,382] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 08:52:25,228] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 08:52:27,595] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 08:52:36,574] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 08:52:37,829] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 08:52:40,762] [INFO] [pipeline] — Pipeline: Interface UNLOCKED.
+[2026-04-26 08:52:41,135] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 08:52:41,350] [INFO] [main] — 
+[!] Global hotkey Alt+Q pressed. Force Exiting...
+[2026-04-26 08:52:41,351] [INFO] [main] — Shutting down gracefully...
+[2026-04-26 08:58:12,301] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 08:58:12,322] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 08:58:12,323] [DEBUG] [__init__] — interactive is False
+[2026-04-26 08:58:12,323] [DEBUG] [__init__] — platform is win32
+[2026-04-26 08:58:12,364] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 08:58:12,366] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 08:58:14,863] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 08:58:14,863] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 08:58:14,863] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 08:58:14,865] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 08:58:14,865] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 08:58:14,915] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 08:58:14,915] [WARNING] [gemini_agent] — GEMINI_API_KEY not found in .env. Agent will not work.
+[2026-04-26 08:58:15,205] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 08:58:17,210] [INFO] [transcriber] — Microphone ready. Energy threshold: 56.36661977709195
+[2026-04-26 08:58:19,455] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 08:58:20,304] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 08:58:20,305] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 08:58:20,307] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 08:58:20,308] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 08:58:20,308] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 08:58:20,309] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 08:58:22,692] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 08:58:22,692] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 08:58:23,322] [DEBUG] [overlay] — Main UI window shown: 318x481 at (1589,526)
+[2026-04-26 08:58:23,323] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 08:58:23,849] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 08:58:23,849] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 08:58:31,750] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 08:58:41,486] [INFO] [pipeline] — Pipeline: Interface UNLOCKED.
+[2026-04-26 08:58:43,946] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 08:58:44,351] [INFO] [main] — 
+[!] Global hotkey Alt+Q pressed. Force Exiting...
+[2026-04-26 08:58:44,352] [INFO] [main] — Shutting down gracefully...
+[2026-04-26 09:00:55,761] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 09:00:55,784] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:00:55,785] [DEBUG] [__init__] — interactive is False
+[2026-04-26 09:00:55,785] [DEBUG] [__init__] — platform is win32
+[2026-04-26 09:00:55,828] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:00:55,830] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 09:00:58,351] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 09:00:58,352] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 09:00:58,352] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 09:00:58,353] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 09:00:58,353] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 09:00:58,402] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 09:00:58,402] [WARNING] [gemini_agent] — GEMINI_API_KEY not found in .env. Agent will not work.
+[2026-04-26 09:00:58,679] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 09:01:00,684] [INFO] [transcriber] — Microphone ready. Energy threshold: 74.85994755448172
+[2026-04-26 09:01:02,743] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 09:01:03,770] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 09:01:03,772] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 09:01:03,775] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 09:01:03,779] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 09:01:03,780] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 09:01:03,780] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 09:01:06,143] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 09:01:06,143] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 09:01:06,377] [DEBUG] [overlay] — Main UI window shown: 318x481 at (1589,526)
+[2026-04-26 09:01:06,377] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 09:01:06,899] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 09:01:06,899] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 09:01:33,859] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:01:34,339] [INFO] [main] — 
+[!] Global hotkey Alt+Q pressed. Force Exiting...
+[2026-04-26 09:01:34,339] [INFO] [main] — Shutting down gracefully...
+[2026-04-26 09:02:00,270] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 09:02:00,292] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:02:00,294] [DEBUG] [__init__] — interactive is False
+[2026-04-26 09:02:00,294] [DEBUG] [__init__] — platform is win32
+[2026-04-26 09:02:00,335] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:02:00,337] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 09:02:02,828] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 09:02:02,828] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 09:02:02,828] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 09:02:02,829] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 09:02:02,829] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 09:02:02,878] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 09:02:02,879] [WARNING] [gemini_agent] — GEMINI_API_KEY not found in .env. Agent will not work.
+[2026-04-26 09:02:03,150] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 09:02:05,154] [INFO] [transcriber] — Microphone ready. Energy threshold: 69.23888486305766
+[2026-04-26 09:02:07,185] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 09:02:08,224] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 09:02:08,226] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 09:02:08,228] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 09:02:08,229] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 09:02:08,229] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 09:02:08,230] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 09:02:10,597] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 09:02:10,597] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 09:02:11,032] [DEBUG] [overlay] — Main UI window shown: 318x481 at (1589,526)
+[2026-04-26 09:02:11,035] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 09:02:11,559] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 09:02:11,560] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 09:02:30,769] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:02:30,980] [INFO] [main] — 
+[!] Global hotkey Alt+Q pressed. Force Exiting...
+[2026-04-26 09:02:30,980] [INFO] [main] — Shutting down gracefully...
+[2026-04-26 09:03:28,863] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 09:03:28,886] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:03:28,887] [DEBUG] [__init__] — interactive is False
+[2026-04-26 09:03:28,887] [DEBUG] [__init__] — platform is win32
+[2026-04-26 09:03:28,928] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:03:28,930] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 09:03:31,455] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 09:03:31,456] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 09:03:31,456] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 09:03:31,456] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 09:03:31,457] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 09:03:31,505] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 09:03:31,506] [WARNING] [gemini_agent] — GEMINI_API_KEY not found in .env. Agent will not work.
+[2026-04-26 09:03:31,785] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 09:03:33,790] [INFO] [transcriber] — Microphone ready. Energy threshold: 82.32904795228542
+[2026-04-26 09:03:35,856] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 09:03:36,864] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 09:03:36,866] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 09:03:36,869] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 09:03:36,870] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 09:03:36,870] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 09:03:36,872] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 09:03:39,228] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 09:03:39,228] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 09:03:39,661] [DEBUG] [overlay] — Main UI window shown: 318x481 at (1589,526)
+[2026-04-26 09:03:39,662] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 09:03:40,182] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 09:03:40,182] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 09:03:55,827] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:03:57,553] [INFO] [main] — 
+[!] Global hotkey Alt+Q pressed. Force Exiting...
+[2026-04-26 09:03:57,554] [INFO] [main] — Shutting down gracefully...
+[2026-04-26 09:04:12,283] [DEBUG] [__init__] — matplotlib data path: c:\Users\antho\AppData\Local\Programs\Python\Python313\Lib\site-packages\matplotlib\mpl-data
+[2026-04-26 09:04:12,306] [DEBUG] [__init__] — CONFIGDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:04:12,307] [DEBUG] [__init__] — interactive is False
+[2026-04-26 09:04:12,307] [DEBUG] [__init__] — platform is win32
+[2026-04-26 09:04:12,350] [DEBUG] [__init__] — CACHEDIR=C:\Users\antho\.matplotlib
+[2026-04-26 09:04:12,352] [DEBUG] [font_manager] — Using fontManager instance from C:\Users\antho\.matplotlib\fontlist-v390.json
+[2026-04-26 09:04:14,867] [INFO] [main] — AccessiBot starting up...
+[2026-04-26 09:04:14,867] [INFO] [main] — 
+=========================================================
+                 A C C E S S I B O T
+         Hands-Free Controller & Assistive Agent
+=========================================================
+ Booting systems...
+ Press [Alt + Q] at any time to force quit.
+=========================================================
+
+[2026-04-26 09:04:14,867] [INFO] [main] — Initializing Dependencies...
+[2026-04-26 09:04:14,868] [INFO] [main] — AudioPlayer initialized successfully.
+[2026-04-26 09:04:14,868] [INFO] [main] — Config and Shared State initialized.
+[2026-04-26 09:04:14,918] [INFO] [pipeline] — FaceLandmarker detector initialized successfully.
+[2026-04-26 09:04:14,918] [WARNING] [gemini_agent] — GEMINI_API_KEY not found in .env. Agent will not work.
+[2026-04-26 09:04:15,196] [INFO] [transcriber] — Adjusting microphone for ambient noise...
+[2026-04-26 09:04:17,201] [INFO] [transcriber] — Microphone ready. Energy threshold: 69.03096536213283
+[2026-04-26 09:04:19,372] [INFO] [pipeline] — Vision pipeline started.
+[2026-04-26 09:04:20,282] [INFO] [main] — Pipeline running state after 3s: True
+[2026-04-26 09:04:20,337] [INFO] [engine] — Cursor Engine started. Screen resolution: 1920x1080
+[2026-04-26 09:04:20,343] [INFO] [dispatcher] — Action Dispatcher started.
+[2026-04-26 09:04:20,349] [INFO] [magnetism] — Predictive Target Magnetism started.
+[2026-04-26 09:04:20,350] [DEBUG] [magnetism] — Magnetism worker thread started with fresh mss instance.
+[2026-04-26 09:04:20,350] [INFO] [gemini_agent] — Adjusting microphone for ambient noise...
+[2026-04-26 09:04:22,748] [INFO] [transcriber] — Voice Transcriber started. Listening for 'transcript now'...
+[2026-04-26 09:04:22,754] [INFO] [overlay] — Starting UI Overlay...
+[2026-04-26 09:04:23,643] [DEBUG] [overlay] — Main UI window shown: 318x481 at (1589,526)
+[2026-04-26 09:04:23,643] [DEBUG] [overlay] — Entering Qt event loop.
+[2026-04-26 09:04:24,175] [DEBUG] [overlay] — TargetingOverlay shown.
+[2026-04-26 09:04:24,175] [INFO] [overlay] — TargetingOverlay initialized successfully.
+[2026-04-26 09:04:34,770] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:04:35,451] [INFO] [pipeline] — Pipeline: Interface LOCKED.
+[2026-04-26 09:04:36,912] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:04:42,142] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:04:47,460] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:04:49,484] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:04:50,960] [INFO] [pipeline] — Pipeline: Interface UNLOCKED.
+[2026-04-26 09:05:02,085] [INFO] [dispatcher] — Action: Left Click triggered via blink!
+[2026-04-26 09:05:02,348] [INFO] [main] — 
+[!] Global hotkey Alt+Q pressed. Force Exiting...
+[2026-04-26 09:05:02,349] [INFO] [main] — Shutting down gracefully...

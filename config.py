@@ -7,15 +7,15 @@ default_config = {
     "ACTIVE_ZONE_X_CENTER": 0.5,
     "ACTIVE_ZONE_Y_CENTER": 0.45,
 
-    # REDUCED: Less physical neck movement required to reach screen edges.
-    "ACTIVE_ZONE_WIDTH": 0.12,  
-    "ACTIVE_ZONE_HEIGHT": 0.08,
+    # FURTHER REDUCED: Minimal physical head movement required.
+    "ACTIVE_ZONE_WIDTH": 0.07,  
+    "ACTIVE_ZONE_HEIGHT": 0.05,
 
-    # REDUCED: More drag/smoothing applied to counteract the smaller active zone.
-    "BASE_ALPHA": 0.08, 
-    "PRECISION_ALPHA": 0.02,
+    # HEAVILY REDUCED: Massive smoothing applied. Cursor will trail behind your head smoothly.
+    "BASE_ALPHA": 0.03, 
+    "PRECISION_ALPHA": 0.01,
 
-    # INCREASED: Ignores tiny head tremors so the cursor stays still when resting.
+    # Keeping deadzones high to prevent resting jitter.
     "VELOCITY_THRESHOLD": 0.005, 
     "DEADZONE_VELOCITY": 0.003,
 
@@ -33,7 +33,6 @@ default_config = {
 
     # --- Target Magnetism ---
     "MAGNETISM_SEARCH_RADIUS": 150,
-    # You might want to slightly increase pull strength if you still have trouble clicking targets
     "MAGNETISM_PULL_STRENGTH": 0.7, 
     "MAGNETISM_TRIGGER_DISTANCE": 40,
 

@@ -41,7 +41,7 @@ class TargetMagnetism(BaseMagnetismEngine):
         sct = mss.mss()
 
         # Pre-build the morphology kernel once
-        kernel = np.ones((5, 15), np.uint8)
+        kernel = np.ones((5, 5), np.uint8)
 
         # Correct HSV bounds for pure #00FF00 (H=60 in OpenCV's 0-179 scale)
         lower_green = np.array([55, 200, 200])
