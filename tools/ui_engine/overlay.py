@@ -95,13 +95,14 @@ class UIOverlay(BaseUIEngine):
         abilities = [
             ("NOSE TRACKING", "Cursor binding: Nose Tip"),
             ("BLINK CLICK", "Wait: 0.25s -> L-Click"),
-            ("DICTATION", "Say 'transcribe me'"),
             ("MAG MAGNETISM", "Real-time UI snapping"),
             ("GEMINI AGENT", "Autonomous UI Control")
         ]
 
-        for title, desc in abilities:
-            self._add_ability_card(title, desc)
+        for i, (title, desc) in enumerate(abilities):
+            row = i // 2
+            col = i % 2
+            self._add_ability_card(title, desc, row, col)
 
         # State tracking for UI
         self.fps_queue = collections.deque(maxlen=30)
@@ -119,15 +120,17 @@ class UIOverlay(BaseUIEngine):
         # Schedule the targeting overlay setup safely after main loop starts
         self.root.after(200, self._setup_targeting_overlay)
 
-    def _add_ability_card(self, title, desc):
-        card = tk.Frame(self.capabilities_frame, bg="#0a0a00", pady=4, padx=10, highlightbackground="#1a1a00", highlightthickness=1)
-        card.pack(fill=tk.X, pady=2)
+    def _add_ability_card(self, title, desc, row, col):
+        card = tk.Frame(self.capabilities_frame, bg="#0a0a00", pady=4, padx=10, highlightbackground=COLORS["yellow"], highlightthickness=1)
+        card.grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
+        self.capabilities_frame.grid_columnconfigure(col, weight=1)
+
         icon_box = tk.Label(card, text="◈", fg=COLORS["yellow"], bg="#151500", width=3, font=("Courier", 10))
-        icon_box.pack(side=tk.LEFT, padx=(0, 10))
+        icon_box.pack(side=tk.LEFT, padx=(0, 5))
         text_f = tk.Frame(card, bg="#0a0a00")
         text_f.pack(side=tk.LEFT, fill=tk.X)
-        tk.Label(text_f, text=title, fg=COLORS["yellow"], bg="#0a0a00", font=("Courier", 8, "bold")).pack(anchor="w")
-        tk.Label(text_f, text=desc, fg="#555500", bg="#0a0a00", font=("Courier", 6)).pack(anchor="w")
+        tk.Label(text_f, text=title, fg=COLORS["blue"], bg="#0a0a00", font=("Courier", 7, "bold")).pack(anchor="w")
+        tk.Label(text_f, text=desc, fg=COLORS["yellow"], bg="#0a0a00", font=("Courier", 6)).pack(anchor="w")
 
     def _setup_targeting_overlay(self):
         try:

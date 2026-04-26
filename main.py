@@ -4,7 +4,17 @@ import signal
 import sys
 import threading
 import argparse
+import logging
+import traceback
 from pynput import keyboard
+
+# Setup global logger
+logging.basicConfig(
+    filename='accessibot.log',
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 from tools.vision_pipeline.pipeline import VisionPipeline
 from tools.cursor_engine.engine import CursorEngine
@@ -26,6 +36,7 @@ def init_dependencies():
     try:
         audio_player = AudioPlayer()
     except Exception as e:
+        logger.error(f"AudioPlayer init error: {e}")
         print(f"AudioPlayer init error: {e}")
         audio_player = None
     return config, shared_state, audio_player
@@ -60,6 +71,7 @@ def launch_app():
     try:
         voice_transcriber = VoiceTranscriber(config, shared_state, audio_player)
     except Exception as e:
+        logger.warning(f"Could not initialize Voice Transcriber: {e}")
         print(f"Warning: Could not initialize Voice Transcriber. Skipping. Error: {e}")
         voice_transcriber = None
 
@@ -67,6 +79,7 @@ def launch_app():
 
     def shutdown():
         nonlocal running
+        logger.info('Shutting down gracefully...')
         print('Shutting down gracefully...')
         running = False
         pipeline.stop()
@@ -109,6 +122,7 @@ def launch_app():
                 pass
             except Exception as e:
                 if running:
+                    logger.error(f"Broadcaster error: {e}", exc_info=True)
                     print(f"Broadcaster error: {e}")
 
     broadcast_thread = threading.Thread(target=broadcaster, daemon=True)
@@ -128,14 +142,18 @@ def launch_app():
     try:
         ui_overlay.start()
     except Exception as e:
+        logger.error(f"UI encountered an error: {e}", exc_info=True)
         print(f"UI encountered an error: {e}")
     finally:
         shutdown()
 
 def main():
     try:
+        logger.info("AccessiBot starting up...")
         launch_app()
+        logger.info("AccessiBot shut down cleanly.")
     except Exception as e:
+        logger.critical(f"Unhandled exception in AccessiBot: {e}", exc_info=True)
         print(f"\n[FATAL ERROR] AccessiBot encountered an unhandled exception: {e}")
         print("Please check your configuration or dependencies and try again.")
         sys.exit(1)

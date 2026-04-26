@@ -12,8 +12,9 @@ default_config = {
 
     # Enlarging width/height makes the cursor move less distance per degree of head movement.
     # We enlarge these to drastically decrease sensitivity, forcing larger physical head movements.
-    "ACTIVE_ZONE_WIDTH": 0.25,
-    "ACTIVE_ZONE_HEIGHT": 0.15,
+    # We lowered them slightly here to reduce the amount the head has to turn to click.
+    "ACTIVE_ZONE_WIDTH": 0.20,
+    "ACTIVE_ZONE_HEIGHT": 0.12,
 
     # Lowering alpha increases smoothing so the cursor glides rather than snapping around.
     "BASE_ALPHA": 0.15,

@@ -60,7 +60,7 @@ class ActionDispatcher(BaseActionDispatcher):
             try:
                 payload = self.data_queue.get(timeout=0.1)
 
-                if self.shared_state.get("dictation_active", False) or payload.get('is_locked', False):
+                if self.shared_state.get("dictation_active", False):
                     continue
 
                 blendshapes = payload['blendshapes']
