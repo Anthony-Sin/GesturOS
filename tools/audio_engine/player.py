@@ -3,6 +3,8 @@ import io
 import pygame
 import numpy as np
 import pyttsx3
+import queue
+import platform
 import threading
 from elevenlabs.client import ElevenLabs
 from dotenv import load_dotenv
@@ -24,14 +26,6 @@ class AudioPlayer:
                 # Initialize pygame mixer with standard settings (44100 Hz, 16 bit, 2 channels)
                 pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
 
-                # Initialize pyttsx3 fallback
-                try:
-                    self.tts = pyttsx3.init()
-                    self.tts.setProperty('rate', 150)
-                except Exception as e:
-                    print(f"Failed to init pyttsx3 fallback: {e}")
-                    self.tts = None
-
                 # Initialize ElevenLabs
                 self.elevenlabs_client = None
                 api_key = os.getenv("ELEVENLABS_API_KEY")
@@ -40,6 +34,11 @@ class AudioPlayer:
                         self.elevenlabs_client = ElevenLabs(api_key=api_key)
                     except Exception as e:
                         print(f"Failed to init ElevenLabs client: {e}")
+
+                # Start TTS worker thread to prevent overlapping audio
+                self.tts_queue = queue.Queue()
+                self.tts_thread = threading.Thread(target=self._tts_worker, daemon=True)
+                self.tts_thread.start()
 
                 # Pre-generate sounds procedurally to avoid file dependencies
                 self.sounds = {
@@ -120,49 +119,70 @@ class AudioPlayer:
             sound.play()
 
     def speak(self, text):
-        print(f"[Audio Engine Says]: {text}")
         if not text:
             return
+        print(f"[Audio Engine Says]: {text}")
+        self.tts_queue.put(text)
 
-        def _speak_thread():
+    def _tts_worker(self):
+        # Local initialization of pyttsx3 to avoid cross-thread COM exceptions
+        tts_fallback = None
+        try:
+            if platform.system() == "Windows":
+                # Ensure COM is initialized for this background thread
+                import pythoncom
+                pythoncom.CoInitialize()
+            tts_fallback = pyttsx3.init()
+            tts_fallback.setProperty('rate', 150)
+        except Exception as e:
+            print(f"Failed to initialize pyttsx3 inside TTS thread: {e}")
+
+        while True:
+            text = self.tts_queue.get()
+            if text is None:
+                break
+
             use_fallback = True
 
             if self.elevenlabs_client:
                 try:
-                    # Generate speech
-                    audio_generator = self.elevenlabs_client.generate(
+                    # Generate speech using v1.0.0+ SDK syntax
+                    # "21m00Tcm4TlvDq8ikWAM" is the default ID for the "Rachel" voice
+                    audio_generator = self.elevenlabs_client.text_to_speech.convert(
+                        voice_id="21m00Tcm4TlvDq8ikWAM",
+                        output_format="mp3_44100_128",
                         text=text,
-                        voice="Rachel",
-                        model="eleven_multilingual_v2"
+                        model_id="eleven_multilingual_v2"
                     )
 
-                    # Accumulate bytes
+                    # Accumulate MP3 bytes
                     audio_data = b""
                     for chunk in audio_generator:
                         if chunk:
                             audio_data += chunk
 
-                    # Play via pygame using an in-memory file
+                    # Play via pygame music (better suited for compressed streams like MP3)
                     if audio_data:
                         audio_file = io.BytesIO(audio_data)
                         try:
-                            # Use pygame to load the mp3 bytes
-                            sound = pygame.mixer.Sound(audio_file)
-                            sound.play()
-                            # Wait for it to finish playing
-                            pygame.time.wait(int(sound.get_length() * 1000))
+                            pygame.mixer.music.load(audio_file)
+                            pygame.mixer.music.play()
+
+                            # Block thread until playback finishes to prevent overlaps
+                            while pygame.mixer.music.get_busy():
+                                pygame.time.Clock().tick(10)
+
                             use_fallback = False
                         except pygame.error as e:
-                            print(f"Pygame failed to play ElevenLabs audio: {e}")
+                            print(f"Pygame music failed to play ElevenLabs audio: {e}")
                 except Exception as e:
                     print(f"ElevenLabs generation failed: {e}")
 
-            if use_fallback and self.tts:
+            if use_fallback and tts_fallback:
                 try:
-                    self.tts.say(text)
-                    self.tts.runAndWait()
+                    tts_fallback.say(text)
+                    tts_fallback.runAndWait()
                 except Exception as e:
-                    print(f"pyttsx3 fallback failed: {e}")
+                    print(f"pyttsx3 fallback execution failed: {e}")
 
-        # Run speech in background to avoid blocking
-        threading.Thread(target=_speak_thread, daemon=True).start()
+            self.tts_queue.task_done()
