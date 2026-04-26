@@ -82,6 +82,10 @@ class VisionPipeline(BaseVisionEngine):
 
         # Frame diffing optimization
         self.frame_diff_threshold = self.config.get("FRAME_DIFF_THRESHOLD", 2.0)
+        self.max_reused_landmark_frames = max(
+            0, int(self.config.get("MAX_REUSED_LANDMARK_FRAMES", 1))
+        )
+        self.reused_landmark_frames = 0
         self.previous_frame_gray = None
         self.last_known_payload = None
 
@@ -136,11 +140,21 @@ class VisionPipeline(BaseVisionEngine):
             current_frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             should_process_mediapipe = True
-            if self.previous_frame_gray is not None and self.last_known_payload is not None:
+            if (
+                self.frame_diff_threshold > 0
+                and self.previous_frame_gray is not None
+                and self.last_known_payload is not None
+            ):
                 diff = cv2.absdiff(current_frame_gray, self.previous_frame_gray)
                 mean_diff = np.mean(diff)
-                if mean_diff < self.frame_diff_threshold:
+                can_reuse = self.reused_landmark_frames < self.max_reused_landmark_frames
+                if mean_diff < self.frame_diff_threshold and can_reuse:
                     should_process_mediapipe = False
+                    self.reused_landmark_frames += 1
+                else:
+                    self.reused_landmark_frames = 0
+            else:
+                self.reused_landmark_frames = 0
 
             landmarks = None
             blendshape_dict = {}

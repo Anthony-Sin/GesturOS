@@ -1,17 +1,13 @@
 import os
 import io
 import time
-import base64
-import queue
 import threading
 import logging
+import platform
 from dotenv import load_dotenv
 
 import mss
 import pyautogui
-import ast
-import pyperclip
-import platform
 import speech_recognition as sr
 from PIL import Image
 
@@ -19,7 +15,6 @@ from google import genai
 from google.genai import types
 from google.genai.types import Content, Part
 from tools.interfaces import BaseBlindAgent
-from tools.audio_engine.pyaudio_singleton import get_pyaudio
 
 load_dotenv()
 
@@ -60,8 +55,15 @@ class GeminiDesktopAgent(BaseBlindAgent):
         self.recognizer.energy_threshold = 300
         self.recognizer.pause_threshold = 0.8
 
-        self.sct = mss.mss()
         self.screen_width, self.screen_height = pyautogui.size()
+        self.router_max_output_tokens = int(self.config.get("LLM_ROUTER_MAX_OUTPUT_TOKENS", 96))
+        self.agent_max_output_tokens = int(self.config.get("AGENT_MAX_OUTPUT_TOKENS", 256))
+        self.agent_max_turns = max(1, int(self.config.get("AGENT_MAX_TURNS", 6)))
+        self.agent_max_actions_per_task = max(1, int(self.config.get("AGENT_MAX_ACTIONS_PER_TASK", 18)))
+        self.agent_max_tool_errors = max(1, int(self.config.get("AGENT_MAX_TOOL_ERRORS", 4)))
+        self.agent_max_history_items = max(3, int(self.config.get("AGENT_MAX_HISTORY_ITEMS", 8)))
+        self.agent_screenshot_max_w = max(640, int(self.config.get("AGENT_SCREENSHOT_MAX_W", 1280)))
+        self.agent_screenshot_max_h = max(360, int(self.config.get("AGENT_SCREENSHOT_MAX_H", 800)))
 
         self.running = False
         self.conversation_history = []
@@ -93,12 +95,37 @@ class GeminiDesktopAgent(BaseBlindAgent):
         self.running = False
 
     def _capture_screen_bytes(self) -> bytes:
-        sct_img = self.sct.grab(self.sct.monitors[1])
+        # Create mss in the same thread that captures to avoid thread-context issues.
+        with mss.mss() as sct:
+            monitor_index = 1 if len(sct.monitors) > 1 else 0
+            sct_img = sct.grab(sct.monitors[monitor_index])
+
         img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
-        img.thumbnail((1440, 900), Image.Resampling.LANCZOS)
+        img.thumbnail((self.agent_screenshot_max_w, self.agent_screenshot_max_h), Image.Resampling.LANCZOS)
         byte_stream = io.BytesIO()
         img.save(byte_stream, format='PNG')
         return byte_stream.getvalue()
+
+    def _resolve_computer_use_environment(self):
+        os_name = platform.system().lower()
+        env_windows = getattr(types.Environment, "ENVIRONMENT_WINDOWS", None)
+        env_mac = getattr(types.Environment, "ENVIRONMENT_MAC", None)
+        env_linux = getattr(types.Environment, "ENVIRONMENT_LINUX", None)
+        fallback_env = env_windows or env_mac or env_linux
+        if fallback_env is None:
+            raise RuntimeError("No supported computer-use environment enum found in google.genai.types.Environment.")
+
+        if "windows" in os_name:
+            return env_windows or fallback_env
+        if "darwin" in os_name or "mac" in os_name:
+            return env_mac or fallback_env
+        return env_linux or fallback_env
+
+    def _extract_function_calls(self, candidate):
+        if not candidate or not getattr(candidate, "content", None):
+            return []
+        parts = getattr(candidate.content, "parts", None) or []
+        return [part.function_call for part in parts if getattr(part, "function_call", None)]
 
 
     def _run_loop(self):
@@ -158,7 +185,7 @@ Do not attempt to write code.
 User command: "{command}"
 """
 
-        flash_model = self.config.get("LLM_FLASH_MODEL", "gemini-1.5-flash")
+        flash_model = self.config.get("LLM_FLASH_MODEL", "gemini-2.5-flash-lite")
 
         # Define the tools
         tool_shortcut = types.FunctionDeclaration(
@@ -230,30 +257,52 @@ User command: "{command}"
                 contents=flash_prompt,
                 config=types.GenerateContentConfig(
                     tools=[tool],
-                    temperature=0.0
+                    temperature=0.0,
+                    max_output_tokens=self.router_max_output_tokens,
                 )
             )
 
-            # Check if it returned a tool call
+            # Find the first function call in any returned part.
             if response.candidates and response.candidates[0].content.parts:
-                part = response.candidates[0].content.parts[0]
-                if part.function_call:
-                    func_name = part.function_call.name
-                    args = part.function_call.args
+                part_with_call = next(
+                    (
+                        p
+                        for p in response.candidates[0].content.parts
+                        if getattr(p, "function_call", None) is not None
+                    ),
+                    None,
+                )
+                if part_with_call and part_with_call.function_call:
+                    func_name = part_with_call.function_call.name
+                    args = dict(part_with_call.function_call.args or {})
 
                     if func_name == "execute_keyboard_shortcut":
-                        self._tool_execute_keyboard_shortcut(args["keys"])
+                        keys = args.get("keys", [])
+                        if isinstance(keys, list) and keys:
+                            self._tool_execute_keyboard_shortcut(keys)
+                        else:
+                            self._tool_ignore_non_command_speech("Router returned invalid shortcut args.")
                     elif func_name == "type_string":
-                        self._tool_type_string(args["text"])
+                        text_to_type = str(args.get("text", "")).strip()
+                        if text_to_type:
+                            self._tool_type_string(text_to_type)
+                        else:
+                            self._tool_ignore_non_command_speech("Router returned empty text for typing.")
                     elif func_name == "escalate_to_agent":
-                        self._tool_escalate_to_agent(args["task_description"])
+                        task_description = str(args.get("task_description", "")).strip()
+                        if task_description:
+                            self._tool_escalate_to_agent(task_description)
+                        else:
+                            self._tool_ignore_non_command_speech("Router returned empty task description.")
                     elif func_name == "ignore_non_command_speech":
-                        self._tool_ignore_non_command_speech(args["reason"])
+                        self._tool_ignore_non_command_speech(str(args.get("reason", "No reason provided.")))
                     else:
                         logger.warning(f"Unknown tool called by Flash: {func_name}")
+                        self._tool_ignore_non_command_speech("Router called an unsupported tool.")
                 else:
                     # Flash output raw text instead of a tool
-                    logger.warning(f"[Tier 2 Router] Flash ignored tools and output text: {part.text}")
+                    first_part_text = response.candidates[0].content.parts[0].text
+                    logger.warning(f"[Tier 2 Router] Flash ignored tools and output text: {first_part_text}")
                     self._tool_ignore_non_command_speech("LLM returned raw text instead of tool call.")
             else:
                  logger.error("[Tier 2 Router] Error: Empty response from Flash.")
@@ -262,10 +311,20 @@ User command: "{command}"
             logger.error(f"Flash Routing Error: {e}")
 
     def _denormalize_x(self, x: int) -> int:
-        return int(x / 1000 * self.screen_width)
+        try:
+            x_val = float(x)
+        except Exception:
+            x_val = 500.0
+        actual = int(x_val / 1000.0 * self.screen_width)
+        return max(0, min(self.screen_width - 1, actual))
 
     def _denormalize_y(self, y: int) -> int:
-        return int(y / 1000 * self.screen_height)
+        try:
+            y_val = float(y)
+        except Exception:
+            y_val = 500.0
+        actual = int(y_val / 1000.0 * self.screen_height)
+        return max(0, min(self.screen_height - 1, actual))
 
     def _wait_for_cancellation(self, duration=1.5):
         """Waits for cancellation signal. Returns True if cancelled, False otherwise."""
@@ -277,21 +336,20 @@ User command: "{command}"
             time.sleep(0.05)
         return False
 
-    def _execute_function_calls(self, candidate) -> list:
+    def _execute_function_calls(self, function_calls) -> list:
         results = []
-        function_calls = []
-        for part in candidate.content.parts:
-            if part.function_call:
-                function_calls.append(part.function_call)
 
         for function_call in function_calls:
-            action_result = {}
-            fname = function_call.name
-            args = function_call.args
+            action_result = {"ok": True}
+            fname = getattr(function_call, "name", "unknown_action")
+            args = dict(getattr(function_call, "args", {}) or {})
             logger.info(f"  -> Agent Executing: {fname} with args: {args}")
 
             try:
                 if fname in ["click", "type"]:
+                    if "x" not in args or "y" not in args:
+                        raise ValueError(f"Missing x/y coordinates for {fname}.")
+
                     actual_x = self._denormalize_x(args["x"])
                     actual_y = self._denormalize_y(args["y"])
 
@@ -308,7 +366,7 @@ User command: "{command}"
                         logger.info("Action cancelled by user!")
                         self.shared_state["currently_doing"] = "ACTION CANCELLED"
                         self.shared_state["agent_target_bbox"] = None
-                        action_result = {"error": "User cancelled the action."}
+                        action_result = {"ok": False, "error": "User cancelled the action."}
                         results.append((fname, action_result))
                         continue # Skip execution
 
@@ -320,9 +378,13 @@ User command: "{command}"
                         pyautogui.click(actual_x, actual_y)
                         self.shared_state["clicks_saved"] = self.shared_state.get("clicks_saved", 0) + 1
                     elif fname == "type":
-                        self.shared_state["currently_doing"] = f"TYPING: {args.get('text', '')[:10]}..."
-                        text = args["text"]
-                        press_enter = args.get("press_enter", False)
+                        text = str(args.get("text", ""))
+                        if not text:
+                            raise ValueError("Type action did not include text.")
+                        # Keep runaway prompts from typing massive payloads by mistake.
+                        text = text[:2000]
+                        self.shared_state["currently_doing"] = f"TYPING: {text[:10]}..."
+                        press_enter = bool(args.get("press_enter", False))
                         pyautogui.click(actual_x, actual_y)
                         self.shared_state["clicks_saved"] = self.shared_state.get("clicks_saved", 0) + 1
                         time.sleep(0.1)
@@ -332,8 +394,12 @@ User command: "{command}"
 
                 elif fname == "scroll":
                     self.shared_state["currently_doing"] = f"SCROLLING {args.get('direction', 'down').upper()}"
-                    amount = args.get("amount", 1)
-                    direction = args.get("direction", "down")
+                    try:
+                        amount = int(args.get("amount", 1))
+                    except Exception:
+                        amount = 1
+                    amount = max(1, min(8, amount))
+                    direction = str(args.get("direction", "down")).lower()
                     if direction == "down":
                         pyautogui.scroll(-300 * amount)
                     else:
@@ -341,12 +407,12 @@ User command: "{command}"
                 else:
                     self.shared_state["currently_doing"] = f"EXECUTING {fname.upper()}"
                     logger.warning(f"Unimplemented function {fname}")
-                    action_result = {"error": f"Function {fname} not supported by this OS layer yet."}
+                    action_result = {"ok": False, "error": f"Function {fname} not supported by this OS layer yet."}
 
                 time.sleep(1.5)
             except Exception as e:
                 logger.error(f"Error executing {fname}: {e}")
-                action_result = {"error": str(e)}
+                action_result = {"ok": False, "error": str(e)}
 
             results.append((fname, action_result))
 
@@ -375,11 +441,15 @@ User command: "{command}"
             self.shared_state["currently_doing"] = "ERROR: API KEY MISSING"
             return
 
+        agent_model = self.config.get("LLM_AGENT_MODEL", "gemini-2.5-computer-use-preview-10-2025")
+        agent_environment = self._resolve_computer_use_environment()
         config = types.GenerateContentConfig(
             system_instruction="You are a helpful, autonomous UI agent. Use the screen context to execute the user's tasks. Do not output require_confirmation unless executing a highly destructive action (like deleting a file or sending an email). Keep text output extremely brief.",
             tools=[types.Tool(computer_use=types.ComputerUse(
-                environment=types.Environment.ENVIRONMENT_MAC
+                environment=agent_environment
             ))],
+            temperature=0.0,
+            max_output_tokens=self.agent_max_output_tokens,
         )
 
         initial_screenshot = self._capture_screen_bytes()
@@ -390,7 +460,9 @@ User command: "{command}"
             ])
         ]
 
-        turn_limit = 10
+        turn_limit = self.agent_max_turns
+        total_actions = 0
+        total_tool_errors = 0
         for i in range(turn_limit):
             logger.info(f"\n--- Agent Turn {i+1} ---")
 
@@ -406,17 +478,21 @@ User command: "{command}"
                 pass
 
             try:
-                agent_model = self.config.get("LLM_AGENT_MODEL", "gemini-2.5-computer-use-preview-10-2025")
                 response = self.client.models.generate_content(
                     model=agent_model,
                     contents=contents,
                     config=config,
                 )
 
+                if not response.candidates:
+                    raise RuntimeError("No candidate returned by Gemini.")
                 candidate = response.candidates[0]
+                if not candidate.content or not candidate.content.parts:
+                    raise RuntimeError("Candidate content was empty.")
                 contents.append(candidate.content)
 
-                has_function_calls = any(part.function_call for part in candidate.content.parts)
+                function_calls = self._extract_function_calls(candidate)
+                has_function_calls = bool(function_calls)
                 if not has_function_calls:
                     final_text = " ".join([part.text for part in candidate.content.parts if part.text])
                     logger.info(f"Agent finished: {final_text}")
@@ -424,7 +500,25 @@ User command: "{command}"
                     self.speak("Task complete.")
                     break
 
-                results = self._execute_function_calls(candidate)
+                remaining_actions = self.agent_max_actions_per_task - total_actions
+                if remaining_actions <= 0:
+                    self.speak("Stopping to avoid excessive automation steps.")
+                    self.shared_state["currently_doing"] = "STOPPED: ACTION BUDGET REACHED"
+                    break
+
+                if len(function_calls) > remaining_actions:
+                    logger.warning(
+                        f"Agent requested {len(function_calls)} actions but only {remaining_actions} are allowed."
+                    )
+                    function_calls = function_calls[:remaining_actions]
+
+                results = self._execute_function_calls(function_calls)
+                total_actions += len(results)
+                total_tool_errors += sum(1 for _, result in results if result.get("error"))
+                if total_tool_errors >= self.agent_max_tool_errors:
+                    self.speak("Stopping because too many tool errors occurred.")
+                    self.shared_state["currently_doing"] = "STOPPED: TOO MANY TOOL ERRORS"
+                    break
 
                 new_screenshot = self._capture_screen_bytes()
                 function_responses = self._get_function_responses(results)
@@ -433,6 +527,8 @@ User command: "{command}"
                 parts.append(Part.from_bytes(data=new_screenshot, mime_type='image/png'))
 
                 contents.append(Content(role="user", parts=parts))
+                if len(contents) > self.agent_max_history_items:
+                    contents = [contents[0]] + contents[-(self.agent_max_history_items - 1):]
             except Exception as e:
                 logger.error(f"Agent turn failed: {e}")
                 self.speak("I encountered an issue while trying to complete the task.")
@@ -446,14 +542,20 @@ User command: "{command}"
     def _tool_execute_keyboard_shortcut(self, keys: list):
         logger.info(f"[Tool] Executing shortcut: {keys}")
         try:
-            pyautogui.hotkey(*keys)
+            normalized_keys = [str(k).strip().lower() for k in keys if str(k).strip()]
+            if not normalized_keys:
+                return
+            pyautogui.hotkey(*normalized_keys[:4])
         except Exception as e:
             logger.error(f"Shortcut error: {e}")
 
     def _tool_type_string(self, text: str):
         logger.info(f"[Tool] Typing string: {text}")
         try:
-            pyautogui.write(text, interval=0.01)
+            safe_text = str(text)[:500]
+            if not safe_text:
+                return
+            pyautogui.write(safe_text, interval=0.01)
         except Exception as e:
             logger.error(f"Typing error: {e}")
 

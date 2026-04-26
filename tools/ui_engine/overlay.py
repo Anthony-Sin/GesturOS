@@ -132,7 +132,8 @@ class CamCanvas(QLabel):
         self._banner_t   = time.time()
 
     def _lm_px(self, lm):
-        return int(lm.x * self.CAM_W), int(lm.y * self.CAM_H)
+        # Camera frame is mirrored before display, so mirror x for overlays too.
+        return int((1.0 - lm.x) * self.CAM_W), int(lm.y * self.CAM_H)
 
     def paintEvent(self, event):
         try:
@@ -163,7 +164,7 @@ class CamCanvas(QLabel):
 
             # Nose reticle
             if self._nose:
-                nx = int(self._nose['x'] * W)
+                nx = int((1.0 - self._nose['x']) * W)
                 ny = int(self._nose['y'] * H)
                 painter.setPen(QPen(QColor(CYAN), 1))
                 painter.setBrush(Qt.BrushStyle.NoBrush)

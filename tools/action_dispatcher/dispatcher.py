@@ -24,9 +24,17 @@ class ActionDispatcher(BaseActionDispatcher):
         # Scrolling thresholds
         self.scroll_brow_threshold = self.config.get("SCROLL_BROW_THRESHOLD", 0.4)
         self.scroll_hold_duration = self.config.get("SCROLL_HOLD_DURATION", 5.0)
+        self.scroll_reset_after_activations = max(
+            1, int(self.config.get("SCROLL_RESET_AFTER_ACTIVATIONS", 4))
+        )
+        self.scroll_reset_cooldown = max(
+            0.0, float(self.config.get("SCROLL_RESET_COOLDOWN", 0.9))
+        )
 
         self.scroll_start_time = None
         self.scroll_intent = None # "up" or "down"
+        self.scroll_activation_count = 0
+        self.scroll_reset_until = 0.0
 
         # We will need a thread to handle continuous scrolling when active
         self.scroll_thread = None
@@ -44,6 +52,14 @@ class ActionDispatcher(BaseActionDispatcher):
 
     def stop(self):
         self.running = False
+
+    def _trigger_scroll_reset(self, now: float):
+        self.scroll_activation_count = 0
+        self.scroll_reset_until = now + self.scroll_reset_cooldown
+        self.scroll_start_time = None
+        self.scroll_intent = None
+        self.shared_state["continuous_scroll_active"] = None
+        self.shared_state["currently_doing"] = "BROW RESET (RELAX)"
 
     def _continuous_scroll_loop(self):
         while self.running:
@@ -90,6 +106,10 @@ class ActionDispatcher(BaseActionDispatcher):
                 else:
                     self.blink_start_time = None
 
+                if now < self.scroll_reset_until:
+                    self.shared_state["continuous_scroll_active"] = None
+                    continue
+
                 # --- Scroll Intent Check ---
                 brow_inner_up = blendshapes.get('browInnerUp', 0.0)
                 brow_outer_up_l = blendshapes.get('browOuterUpLeft', 0.0)
@@ -113,6 +133,11 @@ class ActionDispatcher(BaseActionDispatcher):
                     else:
                         elapsed = now - self.scroll_start_time
                         if elapsed >= self.scroll_hold_duration:
+                            if self.shared_state.get("continuous_scroll_active") != current_intent:
+                                self.scroll_activation_count += 1
+                                if self.scroll_activation_count >= self.scroll_reset_after_activations:
+                                    self._trigger_scroll_reset(now)
+                                    continue
                             self.shared_state["continuous_scroll_active"] = current_intent
                             self.shared_state["currently_doing"] = f"SCROLLING {current_intent.upper()} (RELAX TO STOP)"
                         else:
@@ -125,17 +150,11 @@ class ActionDispatcher(BaseActionDispatcher):
                         # We were scrolling, now stop
                         self.shared_state["continuous_scroll_active"] = None
                         self.shared_state["currently_doing"] = "AWAITING COMMAND"
+                    elif self.shared_state.get("currently_doing") == "BROW RESET (RELAX)":
+                        self.shared_state["currently_doing"] = "AWAITING COMMAND"
 
                     self.scroll_start_time = None
                     self.scroll_intent = None
-
-                    # If we aren't doing anything else important and relaxed,
-                    # we could reset "currently_doing", but it might overwrite other states.
-                    # Let's only clear it if we were actively counting down
-                    if self.scroll_start_time and not self.shared_state.get("continuous_scroll_active"):
-                        # This condition implies we aborted countdown, but since scroll_start_time is reset above,
-                        # we can't check it here easily unless we track it.
-                        pass
 
             except queue.Empty:
                 continue

@@ -39,6 +39,16 @@ class CursorEngine(BaseCursorEngine):
         self.active_zone_width    = self.config.get("ACTIVE_ZONE_WIDTH",    0.18)
         self.active_zone_height   = self.config.get("ACTIVE_ZONE_HEIGHT",   0.06)
 
+        self.magnetism_pull_strength = max(
+            0.0, min(1.0, float(self.config.get("MAGNETISM_PULL_STRENGTH", 0.35)))
+        )
+        self.magnetism_release_distance = float(
+            self.config.get(
+                "MAGNETISM_RELEASE_DISTANCE",
+                self.config.get("MAGNETISM_TRIGGER_DISTANCE", 40) * 1.8,
+            )
+        )
+
         self.last_cursor_pos = None
 
     def _build_filters(self):
@@ -165,21 +175,29 @@ class CursorEngine(BaseCursorEngine):
                 snap_target = self.shared_state.get("magnet_snap_target")
                 if snap_target:
                     try:
-                        sx, sy = int(snap_target[0]), int(snap_target[1])
-                        pyautogui.moveTo(sx, sy)
-                        if self.last_cursor_pos:
-                            dist = math.hypot(sx - self.last_cursor_pos[0],
-                                              sy - self.last_cursor_pos[1])
-                            self.shared_state["cursor_distance"] = (
-                                self.shared_state.get("cursor_distance", 0) + dist
-                            )
-                        self.last_cursor_pos = (sx, sy)
-                        # Seed filters so release doesn't cause a jump
-                        self.filter_x(snap_target[0], timestamp)
-                        self.filter_y(snap_target[1], timestamp)
+                        sx, sy = float(snap_target[0]), float(snap_target[1])
+                        breakout_dist = math.hypot(target_x - sx, target_y - sy)
+                        if breakout_dist > self.magnetism_release_distance:
+                            # User moved away intentionally: clear stale snap state.
+                            self.shared_state["magnet_snap_target"] = None
+                            self.shared_state["magnet_target_bbox"] = None
+                        else:
+                            pulled_x = target_x + (sx - target_x) * self.magnetism_pull_strength
+                            pulled_y = target_y + (sy - target_y) * self.magnetism_pull_strength
+                            filtered_x = self.filter_x(pulled_x, timestamp)
+                            filtered_y = self.filter_y(pulled_y, timestamp)
+                            fx, fy = int(filtered_x), int(filtered_y)
+                            pyautogui.moveTo(fx, fy)
+                            if self.last_cursor_pos:
+                                dist = math.hypot(fx - self.last_cursor_pos[0],
+                                                  fy - self.last_cursor_pos[1])
+                                self.shared_state["cursor_distance"] = (
+                                    self.shared_state.get("cursor_distance", 0) + dist
+                                )
+                            self.last_cursor_pos = (fx, fy)
+                            continue
                     except Exception as e:
-                        logger.warning(f"Snap moveTo error: {e}")
-                    continue
+                        logger.warning(f"Magnetism pull error: {e}")
 
                 # ── Normal filter + move ──────────────────────────────────────
                 try:

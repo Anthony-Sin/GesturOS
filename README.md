@@ -29,7 +29,7 @@ A comprehensive Python application designed for motor-impaired users. It transla
 
 ## Model Configuration
 You can configure which Gemini models are used for specific tasks by editing the `default_config` dictionary in `config.py`.
-*   `LLM_FLASH_MODEL`: Used for fast-path reasoning and simple intent translation (Default: `gemini-1.5-flash`).
+*   `LLM_FLASH_MODEL`: Used for fast-path reasoning and simple intent translation (Default: `gemini-2.5-flash-lite`).
 *   `LLM_AGENT_MODEL`: Used for the multi-step visual Computer Use Agent loop (Default: `gemini-2.5-computer-use-preview-10-2025`).
 
 ## Usage
