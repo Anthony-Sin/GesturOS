@@ -151,8 +151,9 @@ If this command is a simple OS action (like scrolling, pressing a key, typing, g
 If the command requires seeing the screen to know where to click or what to interact with (e.g., "click the login button", "find my email", "open google chrome"), you MUST output exactly the word "FALLBACK" and nothing else.
 """
             try:
+                flash_model = self.config.get("LLM_FLASH_MODEL", "gemini-1.5-flash")
                 response = self.client.models.generate_content(
-                    model='gemini-1.5-flash',
+                    model=flash_model,
                     contents=flash_prompt
                 )
                 output = response.text.strip()
@@ -259,7 +260,9 @@ If the command requires seeing the screen to know where to click or what to inte
         return results
 
     def _get_function_responses(self, results):
-        screenshot_bytes = self._capture_screen_bytes()
+        # We need a fresh screenshot to show the state *after* the actions occurred
+        # However, the google-genai SDK for Computer Use expects the screenshot
+        # to be passed alongside the FunctionResponse in the parts list, not inside it.
         function_responses = []
 
         for name, result in results:
@@ -268,12 +271,7 @@ If the command requires seeing the screen to know where to click or what to inte
             function_responses.append(
                 types.FunctionResponse(
                     name=name,
-                    response=response_data,
-                    parts=[types.FunctionResponsePart(
-                            inline_data=types.FunctionResponseBlob(
-                                mime_type="image/png",
-                                data=screenshot_bytes))
-                    ]
+                    response=response_data
                 )
             )
         return function_responses
@@ -348,8 +346,9 @@ If the command requires seeing the screen to know where to click or what to inte
                 pass # No interrupt heard
 
             try:
+                agent_model = self.config.get("LLM_AGENT_MODEL", "gemini-2.5-computer-use-preview-10-2025")
                 response = self.client.models.generate_content(
-                    model='gemini-2.5-computer-use-preview-10-2025',
+                    model=agent_model,
                     contents=contents,
                     config=config,
                 )
@@ -377,13 +376,15 @@ If the command requires seeing the screen to know where to click or what to inte
                 # Execute actions
                 results = self._execute_function_calls(candidate)
 
-                # The prompt explicitly requires "The loop captures screenshots after each action, sends them back to the model".
-                # _get_function_responses takes a new screenshot and bundles it inside the response part.
+                # Capture fresh screenshot after action
+                new_screenshot = self._capture_screen_bytes()
                 function_responses = self._get_function_responses(results)
 
-                contents.append(
-                    Content(role="user", parts=[Part(function_response=fr) for fr in function_responses])
-                )
+                # The Computer Use SDK requires returning the function responses AND the new screenshot
+                parts = [Part.from_function_response(name=fr.name, response=fr.response) for fr in function_responses]
+                parts.append(Part.from_bytes(data=new_screenshot, mime_type='image/png'))
+
+                contents.append(Content(role="user", parts=parts))
             except Exception as e:
                 print(f"Agent turn failed: {e}")
                 self.speak("I encountered an issue while trying to complete the task.")

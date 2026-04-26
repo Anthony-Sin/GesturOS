@@ -27,15 +27,6 @@ class BaseActionDispatcher(ABC):
     def stop(self):
         pass
 
-class BaseSystemNavigator(ABC):
-    @abstractmethod
-    def start(self):
-        pass
-
-    @abstractmethod
-    def stop(self):
-        pass
-
 class BaseVoiceEngine(ABC):
     @abstractmethod
     def start(self):

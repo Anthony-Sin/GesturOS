@@ -9,7 +9,6 @@ from pynput import keyboard
 from tools.vision_pipeline.pipeline import VisionPipeline
 from tools.cursor_engine.engine import CursorEngine
 from tools.action_dispatcher.dispatcher import ActionDispatcher
-from tools.system_navigator.navigator import SystemNavigator
 from tools.ui_engine.overlay import UIOverlay
 from tools.voice_engine.transcriber import VoiceTranscriber
 from tools.cursor_engine.magnetism import TargetMagnetism
@@ -44,14 +43,12 @@ def launch_app():
 
     cursor_queue = queue.Queue(maxsize=5)
     action_queue = queue.Queue(maxsize=5)
-    navigator_queue = queue.Queue(maxsize=5)
     ui_queue = queue.Queue(maxsize=5)
     master_queue = queue.Queue(maxsize=5)
 
     pipeline = VisionPipeline(master_queue, config, shared_state)
     cursor_engine = CursorEngine(cursor_queue, config, shared_state, audio_player)
     action_dispatcher = ActionDispatcher(action_queue, config, shared_state, audio_player)
-    system_navigator = SystemNavigator(navigator_queue, config, shared_state)
     ui_overlay = UIOverlay(ui_queue, config, shared_state, audio_player)
     target_magnetism = TargetMagnetism(cursor_engine, config)
 
@@ -74,7 +71,6 @@ def launch_app():
         pipeline.stop()
         cursor_engine.stop()
         action_dispatcher.stop()
-        system_navigator.stop()
         target_magnetism.stop()
         agent.stop()
         if voice_transcriber:
@@ -106,8 +102,6 @@ def launch_app():
                 except queue.Full: pass
                 try: action_queue.put_nowait(payload)
                 except queue.Full: pass
-                try: navigator_queue.put_nowait(payload)
-                except queue.Full: pass
                 try: ui_queue.put_nowait(payload)
                 except queue.Full: pass
             except queue.Empty:
@@ -124,7 +118,6 @@ def launch_app():
 
     cursor_engine.start()
     action_dispatcher.start()
-    system_navigator.start()
     target_magnetism.start()
     agent.start()
     if voice_transcriber:
