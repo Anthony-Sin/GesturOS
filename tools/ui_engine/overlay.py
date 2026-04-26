@@ -4,6 +4,7 @@ import cv2
 from PIL import Image, ImageTk, ImageDraw
 import collections
 import time
+import numpy as np
 from tools.interfaces import BaseUIEngine
 
 class UIOverlay(BaseUIEngine):
@@ -21,61 +22,64 @@ class UIOverlay(BaseUIEngine):
 
         self.root.title("AccessiBot UI")
 
-        # Configuration & Styling
-        self.cam_width = 240
-        self.cam_height = 180
-        self.sidebar_expanded_width = 200
-        self.sidebar_collapsed_width = 30
+        # Configuration & Styling (Cyberpunk aesthetic as requested)
+        # Using a fixed size as requested that looks proportional (e.g. 300 width)
+        self.window_width = 300
+        # The height is determined dynamically by the components to match the layout
+        self.cam_width = 280
+        self.cam_height = 210
 
-        self.is_sidebar_expanded = False
+        self.bg_color = "#000000"
+        self.border_color = "#FFFF00" # Yellow outline
+        self.text_color = "#00FFFF" # Cyan text
+        self.accent_color = "#FF004D" # Red accent
+        self.yellow_text = "#FFFF00"
 
-        self.bg_color = "#1E1E1E"
-        self.accent_color = "#8A2BE2" # Clean minimal purple
-        self.text_color = "#FFFFFF"
-        self.muted_color = "#888888"
-
-        # Position at bottom right
         self.screen_width = self.root.winfo_screenwidth()
         self.screen_height = self.root.winfo_screenheight()
-
-        self._update_geometry()
 
         self.root.attributes('-topmost', True)
         self.root.overrideredirect(True)
         self.root.configure(bg=self.bg_color)
 
-        # Main Layout Frame
-        self.main_frame = tk.Frame(self.root, bg=self.bg_color)
+        # Main Layout Frame with Thick Yellow Border
+        self.main_frame = tk.Frame(self.root, bg=self.bg_color, highlightbackground=self.border_color, highlightthickness=3)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Sidebar Frame
-        self.sidebar_frame = tk.Frame(self.main_frame, bg="#151515", width=self.sidebar_collapsed_width)
-        self.sidebar_frame.pack(side=tk.LEFT, fill=tk.Y)
-        self.sidebar_frame.pack_propagate(False)
+        # --- Top Section: Currently Doing ---
+        self.top_frame = tk.Frame(self.main_frame, bg=self.bg_color)
+        self.top_frame.pack(fill=tk.X, padx=10, pady=(10, 5))
 
-        # Sidebar Toggle Button
-        self.toggle_btn = tk.Button(self.sidebar_frame, text="▶", bg="#151515", fg=self.muted_color,
-                                    bd=0, activebackground="#1E1E1E", activeforeground=self.text_color,
-                                    command=self._toggle_sidebar, font=("Arial", 10))
-        self.toggle_btn.pack(side=tk.TOP, pady=5, anchor="w", padx=5)
+        self.lbl_currently_doing = tk.Label(self.top_frame, text="C U R R E N T L Y _ D O I N G", bg=self.bg_color, fg=self.text_color, font=("Courier", 10, "bold"))
+        self.lbl_currently_doing.pack(side=tk.LEFT)
 
-        # Sidebar Content (hidden initially)
-        self.sidebar_content = tk.Frame(self.sidebar_frame, bg="#151515")
-        tk.Label(self.sidebar_content, text="Voice & Face Controls", bg="#151515", fg=self.accent_color, font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(10, 5))
+        # Yellow separator line
+        tk.Frame(self.main_frame, bg=self.border_color, height=1).pack(fill=tk.X, padx=5, pady=5)
 
-        instructions = [
-            "👁 Blink — Left Click",
-            "🎙 Say 'transcribe me' — Dictation",
-            "⌨️ Say 'press [key]' — Keyboard",
-            "🤖 Say 'Agent [task]' — AI takes over"
-        ]
+        # --- Middle Section: Abilities / Info Squares ---
+        self.info_frame = tk.Frame(self.main_frame, bg=self.bg_color)
+        self.info_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        for inst in instructions:
-            tk.Label(self.sidebar_content, text=inst, bg="#151515", fg=self.text_color, font=("Segoe UI", 9)).pack(anchor="w", pady=2)
+        def create_info_row(parent, text):
+            row = tk.Frame(parent, bg=self.bg_color)
+            row.pack(fill=tk.X, pady=2)
+            # Red square
+            canvas = tk.Canvas(row, width=10, height=10, bg=self.bg_color, highlightthickness=0)
+            canvas.pack(side=tk.LEFT, padx=(0, 5))
+            canvas.create_rectangle(2, 2, 8, 8, fill=self.accent_color, outline="")
+            # Yellow text
+            tk.Label(row, text=text, bg=self.bg_color, fg=self.yellow_text, font=("Courier", 9, "italic", "bold")).pack(side=tk.LEFT)
 
-        # Camera Frame
+        create_info_row(self.info_frame, "PREDICTIVE MAGNETISM: SNAP")
+        create_info_row(self.info_frame, "ELEVENLABS: TTS READY")
+        create_info_row(self.info_frame, "AUTONOMOUS AI: ACTIVE")
+
+        # Yellow separator line
+        tk.Frame(self.main_frame, bg=self.border_color, height=1).pack(fill=tk.X, padx=5, pady=5)
+
+        # --- Bottom Section: Webcam Feed ---
         self.cam_frame = tk.Frame(self.main_frame, bg=self.bg_color, width=self.cam_width, height=self.cam_height)
-        self.cam_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=4, pady=4)
+        self.cam_frame.pack(pady=(0, 10), padx=10)
 
         self.canvas = tk.Canvas(self.cam_frame, width=self.cam_width, height=self.cam_height, bg=self.bg_color, highlightthickness=0)
         self.canvas.pack()
@@ -88,26 +92,13 @@ class UIOverlay(BaseUIEngine):
         self.banner_start_time = 0
         self.last_voice_status = ""
 
-    def _update_geometry(self):
-        w = self.cam_width + (self.sidebar_expanded_width if self.is_sidebar_expanded else self.sidebar_collapsed_width) + 8
-        h = self.cam_height + 8
+        # Update geometry and position after components are built
+        self.root.update_idletasks()
+        w = self.root.winfo_width()
+        h = self.root.winfo_height()
         x = self.screen_width - w - 20
         y = self.screen_height - h - 60
         self.root.geometry(f"{w}x{h}+{x}+{y}")
-
-    def _toggle_sidebar(self):
-        self.is_sidebar_expanded = not self.is_sidebar_expanded
-
-        if self.is_sidebar_expanded:
-            self.sidebar_frame.config(width=self.sidebar_expanded_width)
-            self.toggle_btn.config(text="◀")
-            self.sidebar_content.pack(fill=tk.BOTH, expand=True, padx=10)
-        else:
-            self.sidebar_content.pack_forget()
-            self.sidebar_frame.config(width=self.sidebar_collapsed_width)
-            self.toggle_btn.config(text="▶")
-
-        self._update_geometry()
 
     def trigger_banner(self, message):
         self.banner_message = message
@@ -128,6 +119,10 @@ class UIOverlay(BaseUIEngine):
             if payload:
                 frame = payload.get('frame')
                 if frame is not None:
+                    # Update label
+                    doing = self.shared_state.get("currently_doing", "AWAITING COMMAND")
+                    self.lbl_currently_doing.config(text=f"{doing}")
+
                     # Resize frame to fit canvas
                     frame = cv2.resize(frame, (self.cam_width, self.cam_height))
 
@@ -150,9 +145,9 @@ class UIOverlay(BaseUIEngine):
                     rounded_img = Image.new('RGBA', img.size, self.bg_color)
                     rounded_img.paste(img, (0, 0), mask=mask)
 
-                    # Draw a subtle border inside the rounded image
+                    # Draw yellow border with rounded corners
                     border_draw = ImageDraw.Draw(rounded_img)
-                    border_draw.rounded_rectangle((0, 0, img.size[0]-1, img.size[1]-1), radius=radius, outline=self.muted_color, width=1)
+                    border_draw.rounded_rectangle((0, 0, img.size[0]-1, img.size[1]-1), radius=radius, outline=self.border_color, width=2)
 
                     imgtk = ImageTk.PhotoImage(image=rounded_img)
 
@@ -171,41 +166,41 @@ class UIOverlay(BaseUIEngine):
     def _draw_overlays(self, frame, payload):
         current_time = time.time()
 
-        # Crosshair, Nose, and Eye State Dots
+        # Draw Yellow Corner Brackets
+        c_len = 20
+        c_thick = 2
+        pad = 10
+        # Top Left
+        cv2.line(frame, (pad, pad), (pad + c_len, pad), (255, 255, 0), c_thick)
+        cv2.line(frame, (pad, pad), (pad, pad + c_len), (255, 255, 0), c_thick)
+        # Top Right
+        cv2.line(frame, (self.cam_width - pad, pad), (self.cam_width - pad - c_len, pad), (255, 255, 0), c_thick)
+        cv2.line(frame, (self.cam_width - pad, pad), (self.cam_width - pad, pad + c_len), (255, 255, 0), c_thick)
+        # Bottom Left
+        cv2.line(frame, (pad, self.cam_height - pad), (pad + c_len, self.cam_height - pad), (255, 255, 0), c_thick)
+        cv2.line(frame, (pad, self.cam_height - pad), (pad, self.cam_height - pad - c_len), (255, 255, 0), c_thick)
+        # Bottom Right
+        cv2.line(frame, (self.cam_width - pad, self.cam_height - pad), (self.cam_width - pad - c_len, self.cam_height - pad), (255, 255, 0), c_thick)
+        cv2.line(frame, (self.cam_width - pad, self.cam_height - pad), (self.cam_width - pad, self.cam_height - pad - c_len), (255, 255, 0), c_thick)
+
+        # Crosshair, Nose
         nose_tip = payload.get('nose_tip')
         if nose_tip:
             nx = int(nose_tip['x'] * self.cam_width)
             ny = int(nose_tip['y'] * self.cam_height)
 
-            # Simple, precise, professional crosshair
-            color = (138, 43, 226) # Purple Accent (RGB)
-            cv2.line(frame, (nx - 4, ny), (nx + 4, ny), color, 1)
-            cv2.line(frame, (nx, ny - 4), (nx, ny + 4), color, 1)
-            cv2.circle(frame, (nx, ny), 1, (255, 255, 255), -1)
+            # High-tech crosshair (cyan rings with red diamond center)
+            color_ring = (0, 255, 255) # Cyan in RGB
+            color_center = (255, 0, 77) # Red Accent
 
-            # Eye State Dots near crosshair
-            blendshapes = payload.get('blendshapes', {})
-            blink_left = blendshapes.get('eyeBlinkLeft', 0.0)
-            blink_right = blendshapes.get('eyeBlinkRight', 0.0)
+            # Draw Rings
+            cv2.circle(frame, (nx, ny), 15, color_ring, 1)
+            cv2.circle(frame, (nx, ny), 8, color_ring, 2)
 
-            threshold = self.config.get("BLINK_THRESHOLD", 0.26)
-            l_closed = blink_left > threshold
-            r_closed = blink_right > threshold
-
-            dot_color_open = (200, 200, 200)
-            dot_color_closed = (138, 43, 226) # Purple
-
-            # Draw dots slightly below and to the side of the crosshair
-            cv2.circle(frame, (nx - 8, ny + 12), 3, dot_color_closed if l_closed else dot_color_open, -1 if l_closed else 1)
-            cv2.circle(frame, (nx + 8, ny + 12), 3, dot_color_closed if r_closed else dot_color_open, -1 if r_closed else 1)
-
-        # FPS counter
-        if len(self.fps_queue) > 1:
-            time_diff = self.fps_queue[-1] - self.fps_queue[0]
-            if time_diff > 0:
-                fps = len(self.fps_queue) / time_diff
-                cv2.putText(frame, f"{fps:.0f} FPS", (self.cam_width - 45, self.cam_height - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.3, (150, 150, 150), 1)
+            # Draw Red Diamond
+            pts = np.array([[nx, ny - 4], [nx + 4, ny], [nx, ny + 4], [nx - 4, ny]], np.int32)
+            pts = pts.reshape((-1, 1, 2))
+            cv2.fillPoly(frame, [pts], color_center)
 
         # Voice Status Monitoring
         voice_status = self.shared_state.get("voice_status", "")

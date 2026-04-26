@@ -20,7 +20,8 @@ def init_dependencies():
     config = default_config.copy()
     shared_state = {
         "voice_status": "Listening for Wake Word...",
-        "dictation_active": False
+        "dictation_active": False,
+        "currently_doing": "AWAITING COMMAND"
     }
     try:
         audio_player = AudioPlayer()
