@@ -4,7 +4,10 @@ import mss
 import numpy as np
 import cv2
 import pyautogui
+import logging
 from tools.interfaces import BaseMagnetismEngine
+
+logger = logging.getLogger(__name__)
 
 class TargetMagnetism(BaseMagnetismEngine):
     def __init__(self, cursor_engine, config: dict):
@@ -20,7 +23,7 @@ class TargetMagnetism(BaseMagnetismEngine):
         self.running = True
         thread = threading.Thread(target=self._run, daemon=True)
         thread.start()
-        print("Predictive Target Magnetism started.")
+        logger.info("Predictive Target Magnetism started.")
         return thread
 
     def stop(self):

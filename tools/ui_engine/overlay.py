@@ -6,7 +6,10 @@ import collections
 import time
 import numpy as np
 import random
+import logging
 from tools.interfaces import BaseUIEngine
+
+logger = logging.getLogger(__name__)
 
 # --- COLOR PALETTE ---
 COLORS = {
@@ -68,6 +71,31 @@ class UIOverlay(BaseUIEngine):
         self.sync_label.pack(side=tk.RIGHT)
 
         # --- B. Activity Logs ---
+        # --- Toggle Button ---
+        self.stats_visible = True
+        self.toggle_frame = tk.Frame(self.main_frame, bg=COLORS["sidebar_bg"], pady=2)
+        self.toggle_frame.pack(fill=tk.X)
+        self.toggle_btn = tk.Label(self.toggle_frame, text="[-] HIDE STATS", fg=COLORS["yellow"], bg=COLORS["sidebar_bg"], font=("Courier", 8, "bold"), cursor="hand2")
+        self.toggle_btn.pack(anchor="e", padx=15)
+        self.toggle_btn.bind("<Button-1>", self._toggle_stats)
+
+        # --- B. Impact Stats Panel ---
+        self.stats_frame = tk.Frame(self.main_frame, bg=COLORS["sidebar_bg"], padx=15, pady=5)
+        self.stats_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.stat_labels = {}
+        stats = [
+            ("CLICKS SAVED", "0"),
+            ("VOICE CMDS", "0"),
+            ("CURSOR DIST", "0 px"),
+            ("SYSTEM STATUS", "ONLINE")
+        ]
+
+        for i, (title, val) in enumerate(stats):
+            row = i // 2
+            col = i % 2
+            self._add_stat_card(title, val, row, col)
+
         self.log_frame = tk.Frame(self.main_frame, bg="#080800", pady=5, padx=15)
         self.log_frame.pack(fill=tk.X)
         self.logs = ["NEURAL LINK OPTIMIZING...", "SCANNING BIO-SIGNALS...", "ICE PROTECTION ACTIVE"]
@@ -85,25 +113,6 @@ class UIOverlay(BaseUIEngine):
         self.canvas.pack()
         self.image_on_canvas = None
 
-        # --- D. Capabilities Menu ---
-        menu_label = tk.Label(self.main_frame, text="NEURAL SUITE v1.0", fg=COLORS["yellow"], bg=COLORS["bg"], font=("Courier", 9, "bold"), pady=5)
-        menu_label.pack(fill=tk.X)
-
-        self.capabilities_frame = tk.Frame(self.main_frame, bg=COLORS["sidebar_bg"], padx=15, pady=5)
-        self.capabilities_frame.pack(fill=tk.BOTH, expand=True)
-
-        abilities = [
-            ("NOSE TRACKING", "Cursor binding: Nose Tip"),
-            ("BLINK CLICK", "Wait: 0.25s -> L-Click"),
-            ("MAG MAGNETISM", "Real-time UI snapping"),
-            ("GEMINI AGENT", "Autonomous UI Control")
-        ]
-
-        for i, (title, desc) in enumerate(abilities):
-            row = i // 2
-            col = i % 2
-            self._add_ability_card(title, desc, row, col)
-
         # State tracking for UI
         self.fps_queue = collections.deque(maxlen=30)
         self.last_voice_status = ""
@@ -120,61 +129,60 @@ class UIOverlay(BaseUIEngine):
         # Schedule the targeting overlay setup safely after main loop starts
         self.root.after(200, self._setup_targeting_overlay)
 
-    def _add_ability_card(self, title, desc, row, col):
-        card = tk.Frame(self.capabilities_frame, bg="#0a0a00", pady=4, padx=10, highlightbackground=COLORS["yellow"], highlightthickness=1)
+    def _toggle_stats(self, event=None):
+        if self.stats_visible:
+            self.stats_frame.pack_forget()
+            self.toggle_btn.config(text="[+] SHOW STATS")
+            self.stats_visible = False
+        else:
+            self.stats_frame.pack(fill=tk.BOTH, expand=True, before=self.log_frame)
+            self.toggle_btn.config(text="[-] HIDE STATS")
+            self.stats_visible = True
+
+    def _add_stat_card(self, title, val, row, col):
+        card = tk.Frame(self.stats_frame, bg="#0a0a00", pady=4, padx=10, highlightbackground=COLORS["yellow"], highlightthickness=1)
         card.grid(row=row, column=col, sticky="nsew", padx=2, pady=2)
-        self.capabilities_frame.grid_columnconfigure(col, weight=1)
+        self.stats_frame.grid_columnconfigure(col, weight=1)
 
         icon_box = tk.Label(card, text="◈", fg=COLORS["yellow"], bg="#151500", width=3, font=("Courier", 10))
         icon_box.pack(side=tk.LEFT, padx=(0, 5))
         text_f = tk.Frame(card, bg="#0a0a00")
         text_f.pack(side=tk.LEFT, fill=tk.X)
         tk.Label(text_f, text=title, fg=COLORS["blue"], bg="#0a0a00", font=("Courier", 7, "bold")).pack(anchor="w")
-        tk.Label(text_f, text=desc, fg=COLORS["yellow"], bg="#0a0a00", font=("Courier", 6)).pack(anchor="w")
+        val_label = tk.Label(text_f, text=val, fg=COLORS["yellow"], bg="#0a0a00", font=("Courier", 8, "bold"))
+        val_label.pack(anchor="w")
+
+        self.stat_labels[title] = val_label
 
     def _setup_targeting_overlay(self):
         try:
             self.targeting_overlay = tk.Toplevel(self.root)
             self.targeting_overlay.title("Targeting Overlay")
-            self.targeting_overlay.attributes('-fullscreen', True)
-            self.targeting_overlay.attributes('-topmost', True)
-
             self.trans_color = '#000001'
-            self.targeting_overlay.attributes('-transparentcolor', self.trans_color)
-            self.targeting_overlay.configure(bg=self.trans_color)
-            self.targeting_overlay.overrideredirect(True)
 
             try:
+                self.targeting_overlay.attributes('-transparentcolor', self.trans_color)
+
                 import ctypes
                 hwnd = self.targeting_overlay.winfo_id()
                 ctypes.windll.user32.SetWindowLongW(hwnd, -20, ctypes.windll.user32.GetWindowLongW(hwnd, -20) | 0x00080000 | 0x00000020)
-            except Exception:
+            except Exception as inner_e:
+                logger.warning(f"OS doesn't fully support transparent Tkinter windows: {inner_e}")
                 pass
+
+            self.targeting_overlay.configure(bg=self.trans_color)
+            self.targeting_overlay.overrideredirect(True)
+            self.targeting_overlay.attributes('-fullscreen', True)
+            self.targeting_overlay.attributes('-topmost', True)
 
             self.targeting_canvas = tk.Canvas(self.targeting_overlay, bg=self.trans_color, highlightthickness=0)
             self.targeting_canvas.pack(fill=tk.BOTH, expand=True)
+            self._update_targeting_overlay()
         except Exception as e:
-            print(f"Failed to initialize targeting overlay: {e}")
+            logger.error(f"Failed to initialize targeting overlay: {e}")
 
-    def trigger_log(self, message):
-        self.logs.pop(0)
-        self.logs.append(message)
-        for i, msg in enumerate(self.logs):
-            self.log_labels[i].config(text=f"» {msg}")
-
-    def update_frame(self):
+    def _update_targeting_overlay(self):
         try:
-            payload = None
-            while True:
-                try:
-                    payload = self.data_queue.get_nowait()
-                except queue.Empty:
-                    break
-
-            current_time = time.time()
-            self.fps_queue.append(current_time)
-
-            # --- Draw Targeting Boxes ---
             if self.targeting_overlay:
                 magnet_bbox = self.shared_state.get("magnet_target_bbox")
                 if magnet_bbox:
@@ -197,10 +205,37 @@ class UIOverlay(BaseUIEngine):
                     if self.agent_rect_id:
                         self.targeting_canvas.delete(self.agent_rect_id)
                         self.agent_rect_id = None
+        except Exception as e:
+            logger.error(f"Targeting overlay error: {e}")
+
+        self.root.after(16, self._update_targeting_overlay)
+
+    def trigger_log(self, message):
+        self.logs.pop(0)
+        self.logs.append(message)
+        for i, msg in enumerate(self.logs):
+            self.log_labels[i].config(text=f"» {msg}")
+
+    def update_frame(self):
+        try:
+            payload = None
+            while True:
+                try:
+                    payload = self.data_queue.get_nowait()
+                except queue.Empty:
+                    break
+
+            current_time = time.time()
+            self.fps_queue.append(current_time)
 
             # --- Update Stats ---
             doing = self.shared_state.get("currently_doing", "AWAITING COMMAND")
             self.lbl_currently_doing.config(text=doing)
+
+            self.stat_labels["CLICKS SAVED"].config(text=str(self.shared_state.get("clicks_saved", 0)))
+            self.stat_labels["VOICE CMDS"].config(text=str(self.shared_state.get("voice_commands", 0)))
+            dist = self.shared_state.get("cursor_distance", 0)
+            self.stat_labels["CURSOR DIST"].config(text=f"{dist:,.0f} px")
 
             # Random jitter for Bio Sync
             if random.random() > 0.8:
@@ -230,6 +265,19 @@ class UIOverlay(BaseUIEngine):
                     cv2.putText(frame_rgb, text, (text_x, text_y), font, scale, (255, 240, 0), thickness) # Cyan inner
 
                     nose_tip = payload.get('nose_tip')
+                    landmarks = payload.get('landmarks', [])
+
+                    # Plot eye landmarks
+                    if landmarks:
+                        # Known mediapipe face mesh eye indices
+                        eye_indices = [384, 385, 386, 387, 388, 390, 263, 362, 398, 466, 373, 374, 249, 380, 381, 382,
+                                       160, 33, 161, 163, 133, 7, 173, 144, 145, 246, 153, 154, 155, 157, 158, 159]
+                        for idx in eye_indices:
+                            if idx < len(landmarks):
+                                lm = landmarks[idx]
+                                lx, ly = int(lm.x * self.cam_width), int(lm.y * self.cam_height)
+                                cv2.circle(frame_rgb, (lx, ly), 1, (0, 255, 0), -1)
+
                     if nose_tip:
                         nx = int(nose_tip['x'] * self.cam_width)
                         ny = int(nose_tip['y'] * self.cam_height)
@@ -265,12 +313,12 @@ class UIOverlay(BaseUIEngine):
                     self.canvas.image = imgtk
 
         except Exception as e:
-            print(f"UI Error: {e}")
+            logger.error(f"UI Error: {e}")
 
         self.root.after(30, self.update_frame)
 
     def start(self):
-        print("Starting UI Overlay...")
+        logger.info("Starting UI Overlay...")
         self.update_frame()
         self.root.mainloop()
 

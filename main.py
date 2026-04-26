@@ -6,14 +6,26 @@ import threading
 import argparse
 import logging
 import traceback
+import logging.handlers
 from pynput import keyboard
 
 # Setup global logger
-logging.basicConfig(
-    filename='accessibot.log',
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] [%(module)s] — %(message)s')
+
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
+root_logger.addHandler(console_handler)
+
+# Rotating file handler
+file_handler = logging.handlers.RotatingFileHandler('gesturos.log', maxBytes=5*1024*1024, backupCount=2)
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(formatter)
+root_logger.addHandler(file_handler)
+
 logger = logging.getLogger(__name__)
 
 from tools.vision_pipeline.pipeline import VisionPipeline
@@ -31,18 +43,23 @@ def init_dependencies():
     shared_state = {
         "voice_status": "Listening for Wake Word...",
         "dictation_active": False,
-        "currently_doing": "AWAITING COMMAND"
+        "currently_doing": "AWAITING COMMAND",
+        "clicks_saved": 0,
+        "voice_commands": 0,
+        "cursor_distance": 0
     }
+    logger.info("Initializing Dependencies...")
     try:
         audio_player = AudioPlayer()
+        logger.info("AudioPlayer initialized successfully.")
     except Exception as e:
         logger.error(f"AudioPlayer init error: {e}")
-        print(f"AudioPlayer init error: {e}")
         audio_player = None
+    logger.info("Config and Shared State initialized.")
     return config, shared_state, audio_player
 
 def launch_app():
-    print("""
+    logger.info("""
 =========================================================
                  A C C E S S I B O T
          Hands-Free Controller & Assistive Agent
@@ -72,7 +89,6 @@ def launch_app():
         voice_transcriber = VoiceTranscriber(config, shared_state, audio_player)
     except Exception as e:
         logger.warning(f"Could not initialize Voice Transcriber: {e}")
-        print(f"Warning: Could not initialize Voice Transcriber. Skipping. Error: {e}")
         voice_transcriber = None
 
     running = True
@@ -80,7 +96,6 @@ def launch_app():
     def shutdown():
         nonlocal running
         logger.info('Shutting down gracefully...')
-        print('Shutting down gracefully...')
         running = False
         pipeline.stop()
         cursor_engine.stop()
@@ -98,7 +113,7 @@ def launch_app():
     signal.signal(signal.SIGINT, signal_handler)
 
     def on_activate_exit():
-        print("\n[!] Global hotkey Alt+Q pressed. Force Exiting...")
+        logger.info("\n[!] Global hotkey Alt+Q pressed. Force Exiting...")
         shutdown()
         import os
         os._exit(0)
@@ -123,7 +138,6 @@ def launch_app():
             except Exception as e:
                 if running:
                     logger.error(f"Broadcaster error: {e}", exc_info=True)
-                    print(f"Broadcaster error: {e}")
 
     broadcast_thread = threading.Thread(target=broadcaster, daemon=True)
     broadcast_thread.start()
@@ -142,8 +156,7 @@ def launch_app():
     try:
         ui_overlay.start()
     except Exception as e:
-        logger.error(f"UI encountered an error: {e}", exc_info=True)
-        print(f"UI encountered an error: {e}")
+        logger.exception(f"UI encountered an error: {e}")
     finally:
         shutdown()
 
@@ -153,9 +166,7 @@ def main():
         launch_app()
         logger.info("AccessiBot shut down cleanly.")
     except Exception as e:
-        logger.critical(f"Unhandled exception in AccessiBot: {e}", exc_info=True)
-        print(f"\n[FATAL ERROR] AccessiBot encountered an unhandled exception: {e}")
-        print("Please check your configuration or dependencies and try again.")
+        logger.exception(f"Unhandled exception in AccessiBot: {e}")
         sys.exit(1)
 
 if __name__ == '__main__':

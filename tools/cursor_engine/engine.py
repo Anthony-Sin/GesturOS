@@ -2,8 +2,12 @@ import pyautogui
 import queue
 import time
 import threading
+import math
+import logging
 from tools.cursor_engine.one_euro import OneEuroFilter
 from tools.interfaces import BaseCursorEngine
+
+logger = logging.getLogger(__name__)
 
 class CursorEngine(BaseCursorEngine):
     def __init__(self, data_queue: queue.Queue, config: dict, shared_state: dict, audio_player):
@@ -29,11 +33,13 @@ class CursorEngine(BaseCursorEngine):
         self.active_zone_width = self.config.get("ACTIVE_ZONE_WIDTH", 0.18)
         self.active_zone_height = self.config.get("ACTIVE_ZONE_HEIGHT", 0.06)
 
+        self.last_cursor_pos = None
+
     def start(self):
         self.running = True
         thread = threading.Thread(target=self._run)
         thread.start()
-        print(f"Cursor Engine started. Screen resolution: {self.screen_w}x{self.screen_h}")
+        logger.info(f"Cursor Engine started. Screen resolution: {self.screen_w}x{self.screen_h}")
         return thread
 
     def stop(self):
@@ -127,7 +133,14 @@ class CursorEngine(BaseCursorEngine):
                 if snap_target:
                     # Bypassing filter completely for instant zero-latency snap
                     try:
-                        pyautogui.moveTo(int(snap_target[0]), int(snap_target[1]))
+                        sx, sy = int(snap_target[0]), int(snap_target[1])
+                        pyautogui.moveTo(sx, sy)
+
+                        if self.last_cursor_pos:
+                            dist = math.hypot(sx - self.last_cursor_pos[0], sy - self.last_cursor_pos[1])
+                            self.shared_state["cursor_distance"] += dist
+                        self.last_cursor_pos = (sx, sy)
+
                         # Feed the target into the filter so it doesn't jump wildly when releasing
                         self.filter_x(snap_target[0], timestamp)
                         self.filter_y(snap_target[1], timestamp)
@@ -139,7 +152,13 @@ class CursorEngine(BaseCursorEngine):
                 filtered_y = self.filter_y(target_y, timestamp)
 
                 try:
-                    pyautogui.moveTo(int(filtered_x), int(filtered_y))
+                    fx, fy = int(filtered_x), int(filtered_y)
+                    pyautogui.moveTo(fx, fy)
+
+                    if self.last_cursor_pos:
+                        dist = math.hypot(fx - self.last_cursor_pos[0], fy - self.last_cursor_pos[1])
+                        self.shared_state["cursor_distance"] += dist
+                    self.last_cursor_pos = (fx, fy)
                 except Exception as e:
                     pass
 
