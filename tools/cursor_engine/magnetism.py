@@ -48,6 +48,7 @@ class TargetMagnetism(BaseMagnetismEngine):
 
                 sct_img = self.sct.grab(monitor)
                 img = np.array(sct_img)
+                img = img[:, :, :3] # Drop alpha channel to convert BGRA to BGR
 
                 # We must filter out the green box we draw so it doesn't self-lock!
                 # The green box is #00FF00. We can mask out pure green before edge detection.
