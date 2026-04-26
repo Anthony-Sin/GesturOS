@@ -1,4 +1,4 @@
-# AccessiBot: Hands-Free Accessibility Suite
+# GesturOS: Hands-Free Accessibility Suite
 A comprehensive Python application designed for motor-impaired users. It translates natural head movements and voice commands into precise OS-level interactions, combining computer vision cursor tracking with a fully autonomous, voice-activated AI Desktop Agent.
 
 ## Core Features

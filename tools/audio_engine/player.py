@@ -159,16 +159,22 @@ class AudioPlayer:
                     'dictation_start': (523, 150),
                     'dictation_stop':  (659, 150),
                 }
-                self.judge_intro_text = (
-                    os.getenv("JUDGE_INTRO_TEXT")
+                self.gesturos_intro_text = (
+                    os.getenv("GESTUROS_INTRO_TEXT")
+                    or os.getenv("JUDGE_INTRO_TEXT")
                     or (
                         "This is GesturOS, a hands free computer control system using nose tracking, blink and brow gestures, "
                         "voice commands, and a supervised AI web agent. Calibration is starting now. Move the blue marker into each "
-                        "red circle and hold briefly until it advances. Keep your head relaxed and centered."
+                        "red circle and hold briefly until it advances. Keep your head relaxed and centered. To start dictation, "
+                        "say transcribe me or record me."
                     )
                 )
                 self.audio_cache_dir = os.path.join(os.getcwd(), "cache_audio")
-                self.judge_intro_path = os.path.join(self.audio_cache_dir, "judge_intro.wav")
+                # Bump filename so updated spoken prompt refreshes existing caches.
+                self.gesturos_intro_path = os.path.join(self.audio_cache_dir, "gesturos_intro_v2.wav")
+                # Backward-compatible aliases for any remaining callers.
+                self.judge_intro_text = self.gesturos_intro_text
+                self.judge_intro_path = self.gesturos_intro_path
 
                 AudioPlayer._initialized = True
                 print("Audio Engine initialized successfully.")
@@ -227,34 +233,40 @@ class AudioPlayer:
             logger.warning(f"TTS clip synthesis failed: {e}")
             return None
 
-    def ensure_judge_intro_clip(self) -> bool:
+    def ensure_gesturos_intro_clip(self) -> bool:
         try:
-            if os.path.exists(self.judge_intro_path) and os.path.getsize(self.judge_intro_path) > 0:
+            if os.path.exists(self.gesturos_intro_path) and os.path.getsize(self.gesturos_intro_path) > 0:
                 return True
             os.makedirs(self.audio_cache_dir, exist_ok=True)
-            wav_bytes = self._synthesize_tts_wav_bytes(self.judge_intro_text)
+            wav_bytes = self._synthesize_tts_wav_bytes(self.gesturos_intro_text)
             if not wav_bytes:
                 return False
-            with open(self.judge_intro_path, "wb") as out_file:
+            with open(self.gesturos_intro_path, "wb") as out_file:
                 out_file.write(wav_bytes)
-            logger.info(f"Cached judge intro clip at: {self.judge_intro_path}")
+            logger.info(f"Cached GesturOS intro clip at: {self.gesturos_intro_path}")
             return True
         except Exception as e:
-            logger.warning(f"Could not cache judge intro clip: {e}")
+            logger.warning(f"Could not cache GesturOS intro clip: {e}")
             return False
 
-    def play_judge_intro(self):
-        if self.ensure_judge_intro_clip():
-            print("[Audio Engine Says]: Playing cached judge intro.")
+    def ensure_judge_intro_clip(self) -> bool:
+        return self.ensure_gesturos_intro_clip()
+
+    def play_gesturos_intro(self):
+        if self.ensure_gesturos_intro_clip():
+            print("[Audio Engine Says]: Playing cached GesturOS intro.")
             def _play_cached():
                 try:
-                    winsound.PlaySound(self.judge_intro_path, winsound.SND_FILENAME)
+                    winsound.PlaySound(self.gesturos_intro_path, winsound.SND_FILENAME)
                 except Exception as e:
-                    logger.warning(f"Could not play cached judge intro: {e}")
-                    self.speak(self.judge_intro_text)
+                    logger.warning(f"Could not play cached GesturOS intro: {e}")
+                    self.speak(self.gesturos_intro_text)
             threading.Thread(target=_play_cached, daemon=True).start()
             return
-        self.speak(self.judge_intro_text)
+        self.speak(self.gesturos_intro_text)
+
+    def play_judge_intro(self):
+        self.play_gesturos_intro()
 
     def _tts_worker(self):
         while True:

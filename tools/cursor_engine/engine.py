@@ -60,6 +60,9 @@ class CursorEngine(BaseCursorEngine):
         self.quick_calibration_default_center_bias = max(
             0.0, min(1.0, float(self.config.get("QUICK_CALIBRATION_DEFAULT_CENTER_BIAS", 0.28)))
         )
+        self.quick_calibration_force_neutral_center = bool(
+            self.config.get("QUICK_CALIBRATION_FORCE_NEUTRAL_CENTER", True)
+        )
         self.quick_calibration_center_min_x = max(
             0.0, min(1.0, float(self.config.get("QUICK_CALIBRATION_CENTER_MIN_X", 0.32)))
         )
@@ -76,6 +79,11 @@ class CursorEngine(BaseCursorEngine):
         )
         self.quick_calibration_max_seconds = max(
             2.0, float(self.config.get("QUICK_CALIBRATION_MAX_SECONDS", 12.0))
+        )
+        # When enabled, quick calibration will never auto-finish with partial points.
+        # It will keep waiting until every calibration target is collected.
+        self.quick_calibration_require_all_points = bool(
+            self.config.get("QUICK_CALIBRATION_REQUIRE_ALL_POINTS", True)
         )
         self.quick_calibration_target_radius_px = max(
             30, int(self.config.get("QUICK_CALIBRATION_TARGET_RADIUS_PX", 85))
@@ -136,6 +144,7 @@ class CursorEngine(BaseCursorEngine):
         self._quick_calibration_point_index = 0
         self._quick_calibration_point_samples = []
         self._quick_calibration_collected = []
+        self._quick_calibration_timeout_logged = False
         self._calibration_wait_logged = False
         self.shared_state["calibration_active"] = False
         self.shared_state["calibration_progress"] = 0.0
@@ -193,6 +202,18 @@ class CursorEngine(BaseCursorEngine):
         self.cursor_max_step_px = max(
             0.0, float(self.config.get("CURSOR_MAX_STEP_PX", 55.0))
         )
+        # Anti-drift hold: if head movement stays below threshold for a few frames
+        # and target is already near the current cursor, freeze to prevent creep.
+        self.cursor_stillness_head_threshold = max(
+            0.0, float(self.config.get("CURSOR_STILLNESS_HEAD_THRESHOLD", self.deadzone_velocity))
+        )
+        self.cursor_stillness_target_window_px = max(
+            0.0, float(self.config.get("CURSOR_STILLNESS_TARGET_WINDOW_PX", 14.0))
+        )
+        self.cursor_stillness_frames = max(
+            1, int(self.config.get("CURSOR_STILLNESS_FRAMES", 5))
+        )
+        self._cursor_still_frame_count = 0
 
         self.magnetism_pull_strength = max(
             0.0, min(1.0, float(self.config.get("MAGNETISM_PULL_STRENGTH", 0.35)))
@@ -213,6 +234,7 @@ class CursorEngine(BaseCursorEngine):
         self._quick_calibration_point_index = 0
         self._quick_calibration_point_samples = []
         self._quick_calibration_collected = []
+        self._quick_calibration_timeout_logged = False
         self._quick_calibration_initial_center = (
             float(self.active_zone_x_center),
             float(self.active_zone_y_center),
@@ -437,31 +459,32 @@ class CursorEngine(BaseCursorEngine):
             self.quick_calibration_center_min_y,
             min(self.quick_calibration_center_max_y, target_y_center),
         )
-        # Blend measured center with previous center to avoid large jumps between runs.
-        target_x_center = (
-            self.quick_calibration_center_blend * target_x_center
-            + (1.0 - self.quick_calibration_center_blend) * float(self.active_zone_x_center)
-        )
-        target_y_center = (
-            self.quick_calibration_center_blend * target_y_center
-            + (1.0 - self.quick_calibration_center_blend) * float(self.active_zone_y_center)
-        )
-        # Add slight bias back toward configured defaults for consistency across sessions.
-        target_x_center = (
-            (1.0 - self.quick_calibration_default_center_bias) * target_x_center
-            + self.quick_calibration_default_center_bias * self.default_active_zone_x_center
-        )
-        target_y_center = (
-            (1.0 - self.quick_calibration_default_center_bias) * target_y_center
-            + self.quick_calibration_default_center_bias * self.default_active_zone_y_center
-        )
+        if not self.quick_calibration_force_neutral_center:
+            # Blend measured center with previous center to avoid large jumps between runs.
+            target_x_center = (
+                self.quick_calibration_center_blend * target_x_center
+                + (1.0 - self.quick_calibration_center_blend) * float(self.active_zone_x_center)
+            )
+            target_y_center = (
+                self.quick_calibration_center_blend * target_y_center
+                + (1.0 - self.quick_calibration_center_blend) * float(self.active_zone_y_center)
+            )
+            # Add slight bias back toward configured defaults for consistency across sessions.
+            target_x_center = (
+                (1.0 - self.quick_calibration_default_center_bias) * target_x_center
+                + self.quick_calibration_default_center_bias * self.default_active_zone_x_center
+            )
+            target_y_center = (
+                (1.0 - self.quick_calibration_default_center_bias) * target_y_center
+                + self.quick_calibration_default_center_bias * self.default_active_zone_y_center
+            )
 
-        dx = target_x_center - self.active_zone_x_center
-        dy = target_y_center - self.active_zone_y_center
-        if abs(dx) > self.quick_calibration_max_center_shift:
-            target_x_center = self.active_zone_x_center + math.copysign(self.quick_calibration_max_center_shift, dx)
-        if abs(dy) > self.quick_calibration_max_center_shift:
-            target_y_center = self.active_zone_y_center + math.copysign(self.quick_calibration_max_center_shift, dy)
+            dx = target_x_center - self.active_zone_x_center
+            dy = target_y_center - self.active_zone_y_center
+            if abs(dx) > self.quick_calibration_max_center_shift:
+                target_x_center = self.active_zone_x_center + math.copysign(self.quick_calibration_max_center_shift, dx)
+            if abs(dy) > self.quick_calibration_max_center_shift:
+                target_y_center = self.active_zone_y_center + math.copysign(self.quick_calibration_max_center_shift, dy)
 
         self.active_zone_x_center = max(min_x, min(max_x, target_x_center))
         self.active_zone_y_center = max(min_y, min(max_y, target_y_center))
@@ -512,6 +535,7 @@ class CursorEngine(BaseCursorEngine):
         now = time.time()
         if self._quick_calibration_started_at is None:
             self._quick_calibration_started_at = now
+            self._quick_calibration_timeout_logged = False
             self._quick_calibration_initial_center = (
                 float(self.active_zone_x_center),
                 float(self.active_zone_y_center),
@@ -523,8 +547,16 @@ class CursorEngine(BaseCursorEngine):
         elapsed = now - self._quick_calibration_started_at
         remaining = max(0.0, self.quick_calibration_max_seconds - elapsed)
         if elapsed >= self.quick_calibration_max_seconds:
-            logger.warning("Quick calibration timed out; finalizing with collected points.")
-            return self._finalize_quick_calibration(timestamp, now)
+            if self.quick_calibration_require_all_points:
+                remaining = 0.0
+                if not self._quick_calibration_timeout_logged:
+                    logger.info(
+                        "Quick calibration soft timeout reached; waiting for all points instead of auto-finalizing."
+                    )
+                    self._quick_calibration_timeout_logged = True
+            else:
+                logger.warning("Quick calibration timed out; finalizing with collected points.")
+                return self._finalize_quick_calibration(timestamp, now)
 
         idx = min(self._quick_calibration_point_index, len(self.quick_calibration_points) - 1)
         target_norm = self.quick_calibration_points[idx]
@@ -562,7 +594,11 @@ class CursorEngine(BaseCursorEngine):
             target_xy=target_norm,
             user_px=user_px,
             progress=progress,
-            message="Move BLUE circle into RED circle and hold",
+            message=(
+                "Move BLUE circle into RED circle and hold"
+                if remaining > 0.0
+                else "Timer ended. Keep going until every target is captured."
+            ),
         )
 
         if len(self._quick_calibration_point_samples) < self.quick_calibration_dwell_samples:
@@ -605,6 +641,7 @@ class CursorEngine(BaseCursorEngine):
                         self.shared_state["currently_doing"] = "TRACKING ENABLED"
 
                 if self.shared_state.get("tracking_paused", False) or self.shared_state.get("agent_active", False):
+                    self._cursor_still_frame_count = 0
                     continue
 
                 # Look-away pause
@@ -613,6 +650,7 @@ class CursorEngine(BaseCursorEngine):
                     if not was_looking_away:
                         self.shared_state["currently_doing"] = "TRACKING PAUSED (LOOK AWAY)"
                         was_looking_away = True
+                    self._cursor_still_frame_count = 0
                     continue
                 else:
                     if was_looking_away:
@@ -620,8 +658,10 @@ class CursorEngine(BaseCursorEngine):
                         was_looking_away = False
 
                 if self.shared_state.get("dictation_active", False):
+                    self._cursor_still_frame_count = 0
                     continue
                 if self.shared_state.get("continuous_scroll_active"):
+                    self._cursor_still_frame_count = 0
                     continue
 
                 # Lock state -> swap filter pair (no mutation)
@@ -724,7 +764,10 @@ class CursorEngine(BaseCursorEngine):
                 if self.last_raw_x is not None and self.last_raw_y is not None:
                     dx = raw_x - self.last_raw_x
                     dy = raw_y - self.last_raw_y
-                    self.shared_state["head_velocity"] = (dx**2 + dy**2) ** 0.5
+                    head_velocity = (dx**2 + dy**2) ** 0.5
+                    self.shared_state["head_velocity"] = head_velocity
+                else:
+                    head_velocity = 0.0
                 self.last_raw_x = raw_x
                 self.last_raw_y = raw_y
 
@@ -739,6 +782,31 @@ class CursorEngine(BaseCursorEngine):
                 target_x = scaled_x * self.screen_w
                 target_y = scaled_y * self.screen_h
                 self.shared_state["raw_nose_target"] = (target_x, target_y)
+
+                if self.last_cursor_pos:
+                    target_drift_px = math.hypot(
+                        float(target_x) - float(self.last_cursor_pos[0]),
+                        float(target_y) - float(self.last_cursor_pos[1]),
+                    )
+                    still_now = (
+                        head_velocity <= self.cursor_stillness_head_threshold
+                        and target_drift_px <= self.cursor_stillness_target_window_px
+                    )
+                    if still_now:
+                        self._cursor_still_frame_count += 1
+                    else:
+                        self._cursor_still_frame_count = 0
+
+                    if self._cursor_still_frame_count >= self.cursor_stillness_frames:
+                        self.shared_state["cursor_still"] = True
+                        # Re-seed active filters at the current cursor location to
+                        # prevent OneEuro residual drift while user stays still.
+                        self.filter_x(self.last_cursor_pos[0], timestamp)
+                        self.filter_y(self.last_cursor_pos[1], timestamp)
+                        continue
+                else:
+                    self._cursor_still_frame_count = 0
+                self.shared_state["cursor_still"] = False
 
                 # Magnetism snap
                 snap_target = self.shared_state.get("magnet_snap_target")

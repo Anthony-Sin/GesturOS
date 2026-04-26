@@ -9,6 +9,7 @@ default_config = {
     "QUICK_CALIBRATION_MIN_SAMPLES": 12,
     "QUICK_CALIBRATION_MAX_CENTER_SHIFT": 0.12,
     "QUICK_CALIBRATION_MAX_SECONDS": 8.0,
+    "QUICK_CALIBRATION_REQUIRE_ALL_POINTS": True,
     "QUICK_CALIBRATION_TARGET_RADIUS_PX": 85,
     "QUICK_CALIBRATION_DWELL_SAMPLES": 6,
     "QUICK_CALIBRATION_EDGE_PADDING": 0.06,
@@ -19,16 +20,17 @@ default_config = {
     "QUICK_CALIBRATION_MAX_WIDTH": 0.42,
     "QUICK_CALIBRATION_MAX_HEIGHT": 0.34,
     # Keep final center in a comfortable middle band to reduce edge bias.
-    "QUICK_CALIBRATION_CENTER_BLEND": 0.85,
-    "QUICK_CALIBRATION_DEFAULT_CENTER_BIAS": 0.28,
+    "QUICK_CALIBRATION_CENTER_BLEND": 1.0,
+    "QUICK_CALIBRATION_DEFAULT_CENTER_BIAS": 0.0,
+    "QUICK_CALIBRATION_FORCE_NEUTRAL_CENTER": True,
     "QUICK_CALIBRATION_CENTER_MIN_X": 0.32,
     "QUICK_CALIBRATION_CENTER_MAX_X": 0.68,
     "QUICK_CALIBRATION_CENTER_MIN_Y": 0.30,
     "QUICK_CALIBRATION_CENTER_MAX_Y": 0.70,
     "QUICK_CALIBRATION_POINTS": [
-        (0.50, 0.52),
-        (0.30, 0.52),
-        (0.70, 0.52),
+        (0.50, 0.50),
+        (0.30, 0.50),
+        (0.70, 0.50),
         (0.50, 0.34),
         (0.50, 0.70),
     ],
@@ -43,7 +45,7 @@ default_config = {
 
     # --- Cursor Engine ---
     "ACTIVE_ZONE_X_CENTER": 0.5,
-    "ACTIVE_ZONE_Y_CENTER": 0.45,
+    "ACTIVE_ZONE_Y_CENTER": 0.50,
     # Always place cursor at screen center on startup for predictable default position.
     "FORCE_CURSOR_CENTER_ON_START": True,
     # Disable one-frame startup calibration (can bias position too high/low).
@@ -75,6 +77,10 @@ default_config = {
     "CURSOR_PIXEL_DEADZONE": 1.6,
     # Hard cap on per-frame movement to prevent jumpy cursor spikes.
     "CURSOR_MAX_STEP_PX": 55.0,
+    # Anti-drift hold when head remains still near current cursor target.
+    "CURSOR_STILLNESS_HEAD_THRESHOLD": 0.0014,
+    "CURSOR_STILLNESS_TARGET_WINDOW_PX": 14.0,
+    "CURSOR_STILLNESS_FRAMES": 5,
 
     # Keeping deadzones high to prevent resting jitter.
     "VELOCITY_THRESHOLD": 0.005, 
@@ -112,6 +118,8 @@ default_config = {
     "PLAYWRIGHT_BROWSER_CHANNEL": "msedge",
     "PLAYWRIGHT_VIEWPORT_W": 1440,
     "PLAYWRIGHT_VIEWPORT_H": 900,
+    # Do not play automatic TTS at app startup.
+    "AGENT_STARTUP_TTS": False,
     # --- LLM Cost / Safety Guardrails ---
     "LLM_ROUTER_MAX_OUTPUT_TOKENS": 96,
     "AGENT_MAX_OUTPUT_TOKENS": 256,

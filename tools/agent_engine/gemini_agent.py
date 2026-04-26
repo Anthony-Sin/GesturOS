@@ -62,6 +62,7 @@ class GeminiDesktopAgent(BaseBlindAgent):
         self.recognizer.pause_threshold = 0.8
 
         self.screen_width, self.screen_height = pyautogui.size()
+        self.agent_startup_tts = bool(self.config.get("AGENT_STARTUP_TTS", False))
         self.router_max_output_tokens = int(self.config.get("LLM_ROUTER_MAX_OUTPUT_TOKENS", 96))
         self.agent_max_output_tokens = int(self.config.get("AGENT_MAX_OUTPUT_TOKENS", 256))
         self.agent_max_turns = max(1, int(self.config.get("AGENT_MAX_TURNS", 6)))
@@ -122,7 +123,10 @@ class GeminiDesktopAgent(BaseBlindAgent):
             except Exception as e:
                 logger.error(f"Mic init error: {e}")
 
-        self.speak("AI Agent ready. Say 'Agent' followed by a command to begin.")
+        if self.agent_startup_tts:
+            self.speak("AI Agent ready. Say 'Agent' followed by a command to begin.")
+        else:
+            logger.info("AI Agent ready (startup TTS disabled). Say 'Agent' followed by a command to begin.")
 
         thread = threading.Thread(target=self._run_loop, daemon=True)
         thread.start()

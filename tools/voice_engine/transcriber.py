@@ -45,7 +45,7 @@ class VoiceTranscriber(BaseVoiceEngine):
         self.running = True
         thread = threading.Thread(target=self._run_loop, daemon=True)
         thread.start()
-        logger.info("Voice Transcriber started. Listening for 'transcript now'...")
+        logger.info("Voice Transcriber started. Listening for dictation wake words...")
         return thread
 
     def stop(self):
@@ -57,7 +57,8 @@ class VoiceTranscriber(BaseVoiceEngine):
 
         wake_words = [
             "transcribe me", "transcript me", "transcribe ne",
-            "subscribe me", "transcribe", "start dictation"
+            "subscribe me", "transcribe", "start dictation",
+            "record me", "start recording", "record"
         ]
 
         cancel_words = ["stop", "cancel", "abort"]
@@ -67,7 +68,7 @@ class VoiceTranscriber(BaseVoiceEngine):
                 if self.shared_state.get("agent_active", False):
                     self.shared_state["voice_status"] = "AGENT ACTIVE (say stop/cancel to interrupt)"
                 else:
-                    self.shared_state["voice_status"] = "Listening for 'transcribe me'..."
+                    self.shared_state["voice_status"] = "Listening for voice commands..."
                 with self.microphone as source:
                     # To prevent blocking for cancellation, listen timeout is reduced to 2s
                     audio = self.recognizer.listen(source, timeout=2, phrase_time_limit=10)
@@ -118,8 +119,8 @@ class VoiceTranscriber(BaseVoiceEngine):
         self.shared_state["continuous_scroll_active"] = None
         if self.audio_player:
             self.audio_player.play('dictation_start')
-        logger.info("Dictation mode active. Tracking paused. Say 'transcribe done' to exit.")
-        self.shared_state["voice_status"] = "DICTATING (Say 'transcribe done' to stop)"
+        logger.info("Dictation mode active. Tracking paused. Say 'transcribe done' or 'record done' to exit.")
+        self.shared_state["voice_status"] = "DICTATING (Say 'transcribe done' or 'record done' to stop)"
 
         while self.running and self.shared_state["dictation_active"]:
             try:
@@ -174,7 +175,7 @@ class VoiceTranscriber(BaseVoiceEngine):
 
         self.shared_state["dictation_active"] = False
         self.shared_state["tracking_paused"] = bool(self.shared_state.get("agent_active", False)) or prev_tracking_paused
-        self.shared_state["voice_status"] = "Listening for 'transcribe me'..."
+        self.shared_state["voice_status"] = "Listening for voice commands..."
 
     def _normalize_phrase(self, text: str) -> str:
         normalized = re.sub(r"[^a-z0-9\s]", " ", (text or "").lower())
@@ -193,27 +194,23 @@ class VoiceTranscriber(BaseVoiceEngine):
         if not normalized:
             return False
 
-        strict_phrases = [
-            "transcribe done",
-            "transcript done",
-            "stop dictation",
-            "stop transcribing",
-            "dictation done",
-            "done dictation",
-            "done transcribing",
-            "transcription done",
-            "stop transcription",
-            "stop transcribe",
-            "transcribe stop",
-        ]
-        if any(phrase in normalized for phrase in strict_phrases):
+        strict_phrase = self._detect_dictation_exit_phrase(normalized)
+        if strict_phrase:
             return True
 
         words = normalized.split()
-        if len(words) > 5:
+        if len(words) > 4:
             return False
 
-        transcribe_targets = {"transcribe", "transcript", "transcription", "dictation", "scribe"}
+        transcribe_targets = {
+            "transcribe",
+            "transcript",
+            "transcription",
+            "dictation",
+            "scribe",
+            "record",
+            "recording",
+        }
         finish_words = {"done", "stop", "end", "finish", "off", "down", "dont"}
 
         has_transcribe_word = any(self._is_similar_word(word, transcribe_targets) for word in words)
@@ -222,11 +219,30 @@ class VoiceTranscriber(BaseVoiceEngine):
 
     def _strip_dictation_exit_phrase(self, text: str) -> str:
         normalized = self._normalize_phrase(text)
+        strict_phrase = self._detect_dictation_exit_phrase(normalized)
+        if not strict_phrase:
+            return ""
+        if normalized == strict_phrase:
+            return ""
+        if normalized.startswith(f"{strict_phrase} "):
+            return normalized[len(strict_phrase):].strip()
+        if normalized.endswith(f" {strict_phrase}"):
+            return normalized[: -len(strict_phrase)].strip()
+        return ""
+
+    def _detect_dictation_exit_phrase(self, normalized: str):
+        words = normalized.split()
+        # Avoid accidental self-trigger from long spoken prompts (e.g. TTS).
+        if len(words) > 6:
+            return None
         strict_phrases = [
             "transcribe done",
             "transcript done",
             "stop dictation",
             "stop transcribing",
+            "record done",
+            "stop recording",
+            "done recording",
             "dictation done",
             "done dictation",
             "done transcribing",
@@ -236,10 +252,15 @@ class VoiceTranscriber(BaseVoiceEngine):
             "transcribe stop",
         ]
         for phrase in strict_phrases:
-            if phrase in normalized:
-                return normalized.replace(phrase, "").strip()
-        # If the phrase only contained an approximate stop command, type nothing.
-        return ""
+            if normalized == phrase:
+                return phrase
+            # Allow short forms like "please transcribe done" or "record done now".
+            if len(words) <= 4 and (
+                normalized.startswith(f"{phrase} ")
+                or normalized.endswith(f" {phrase}")
+            ):
+                return phrase
+        return None
 
     def _extract_keyboard_key(self, text: str):
         phrase = self._normalize_phrase(text)

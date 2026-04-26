@@ -4,6 +4,7 @@ import collections
 import logging
 import sys
 import os
+import math
 import cv2
 
 from tools.interfaces import BaseUIEngine
@@ -21,13 +22,14 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer, QPoint, QRect
 from PyQt6.QtGui import QImage, QPixmap, QFont, QColor, QPainter, QPen, QBrush, QPolygon
 
-BG     = "#0a0a0a"
-RED    = "#FF004D"
-YELLOW = "#FFFF00"
-CYAN   = "#00FFFF"
-GREEN  = "#00FF00"
-GRAY   = "#555555"
-EYE    = "#7CFF00"
+BG     = "#000000"
+WHITE  = "#FFFFFF"
+RED    = "#FF5C39"
+YELLOW = "#FFFFFF"
+CYAN   = "#FFFFFF"
+GREEN  = "#FFFFFF"
+GRAY   = "#6E7B8B"
+EYE    = "#8AFF6A"
 
 # MediaPipe landmark indices
 L_EYE_TOP = 159; L_EYE_BOT = 145; L_EYE_INNER = 133; L_EYE_OUTER = 33
@@ -36,14 +38,11 @@ L_BROW_INNER = 107; L_BROW_OUTER = 70
 R_BROW_INNER = 336; R_BROW_OUTER = 300
 
 COMMANDS = [
-    ("SAY",  "'AGENT [task]'",   "-> AI agent"),
-    ("SAY",  "'TRANSCRIBE ME'",  "-> dictation"),
-    ("SAY",  "'TRANSCRIBE DONE'", "-> stop dictation"),
-    ("SAY",  "'PRESS [key]'",    "-> key press"),
-    ("SAY",  "'OPEN / CLICK'",   "-> click target"),
-    ("SAY",  "'STOP / CANCEL'",  "-> abort"),
-    ("SAY",  "'SNIPER MODE'",    "-> toggle snap aim"),
-    ("HOLD", "gaze still 5s",    "-> lock cursor"),
+    ("SAY",  "'AGENT [task]'",   "start AI control"),
+    ("SAY",  "'STOP AGENT'",     "stop AI control"),
+    ("SAY",  "'PRESS [key]'",    "keyboard press"),
+    ("SAY",  "'OPEN / CLICK'",   "click target"),
+    ("SAY",  "'SNIPER MODE'",    "precision aim"),
 ]
 
 def _safe_lm(landmarks, idx):
@@ -211,6 +210,7 @@ class CamCanvas(QLabel):
         self._calibration_target_xy = (0.5, 0.5)
         self._calibration_summary_active = False
         self._calibration_summary_text = ""
+        self._scan_phase = 0.0
 
     def set_frame(self, bgr_frame, nose_tip, landmarks=None, blendshapes=None):
         try:
@@ -270,8 +270,11 @@ class CamCanvas(QLabel):
             else:
                 painter.fillRect(self.rect(), QColor(BG))
 
+            self._scan_phase = (self._scan_phase + 0.035) % 1.0
+            self._draw_scan_sweep(painter)
+
             # Corner brackets
-            painter.setPen(QPen(QColor(RED), 2))
+            painter.setPen(QPen(QColor(CYAN), 2))
             pad, cl = 8, 20
             W, H = self.CAM_W, self.CAM_H
             for ox, oy, sx, sy in [
@@ -289,17 +292,21 @@ class CamCanvas(QLabel):
             if self._nose:
                 nx = int((1.0 - self._nose['x']) * W)
                 ny = int(self._nose['y'] * H)
+                pulse = 1.0 + 0.22 * math.sin(time.time() * 5.8)
+                outer_r = max(11, int(14 * pulse))
                 painter.setPen(QPen(QColor(CYAN), 1))
                 painter.setBrush(Qt.BrushStyle.NoBrush)
-                painter.drawEllipse(QPoint(nx, ny), 13, 13)
+                painter.drawEllipse(QPoint(nx, ny), outer_r, outer_r)
                 painter.setPen(QPen(QColor(CYAN), 2))
-                painter.drawEllipse(QPoint(nx, ny), 6, 6)
+                painter.drawEllipse(QPoint(nx, ny), 7, 7)
                 painter.setBrush(QBrush(QColor(RED)))
                 painter.setPen(Qt.PenStyle.NoPen)
                 painter.drawPolygon(QPolygon([
                     QPoint(nx,   ny-4), QPoint(nx+4, ny),
                     QPoint(nx,   ny+4), QPoint(nx-4, ny),
                 ]))
+
+            self._draw_tracking_chip(painter)
 
             if self._calibration_active:
                 self._draw_calibration_overlay(painter)
@@ -310,6 +317,35 @@ class CamCanvas(QLabel):
             painter.end()
         except Exception as e:
             logger.error(f"CamCanvas paintEvent error: {e}", exc_info=True)
+
+    def _draw_scan_sweep(self, painter: QPainter):
+        if not self._pixmap:
+            return
+        sweep_h = 26
+        center_y = int(self._scan_phase * (self.CAM_H + sweep_h)) - sweep_h
+        painter.setOpacity(0.22)
+        painter.fillRect(0, center_y, self.CAM_W, sweep_h, QColor(48, 223, 255, 95))
+        painter.setOpacity(0.38)
+        painter.setPen(QPen(QColor(48, 223, 255, 160), 1))
+        painter.drawLine(0, center_y + sweep_h // 2, self.CAM_W, center_y + sweep_h // 2)
+        painter.setOpacity(1.0)
+
+    def _draw_tracking_chip(self, painter: QPainter):
+        tracking_ready = bool(self._landmarks and self._nose)
+        label = "FACE TRACKING LOCKED" if tracking_ready else "SCANNING FOR FACE..."
+        chip_color = QColor(WHITE)
+        bg_color = QColor(0, 0, 0, 212)
+        chip_w = self.CAM_W - 14
+        chip_h = 20
+        chip_x = 7
+        chip_y = 7
+
+        painter.setBrush(QBrush(bg_color))
+        painter.setPen(QPen(chip_color, 1))
+        painter.drawRoundedRect(chip_x, chip_y, chip_w, chip_h, 6, 6)
+        painter.setPen(QPen(chip_color, 1))
+        painter.setFont(QFont("Courier", 8, QFont.Weight.Bold))
+        painter.drawText(chip_x + 8, chip_y + 14, label)
 
     def _draw_eyes(self, painter: QPainter):
         lms = self._landmarks
@@ -340,12 +376,12 @@ class CamCanvas(QLabel):
             raw_eh = int(abs(top.y - bot.y) * self.CAM_H)
             eh = max(2, min(raw_eh, int(ew * 0.4)))
 
-            painter.setPen(QPen(QColor(EYE), 1))
+            painter.setPen(QPen(QColor(EYE), 2))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawEllipse(QPoint(cx, cy), ew, eh)
 
             if blink > 0.55:
-                painter.setPen(QPen(QColor(YELLOW), 2))
+                painter.setPen(QPen(QColor(RED), 3))
                 painter.drawLine(cx - ew, cy, cx + ew, cy)
                 continue
 
@@ -357,11 +393,13 @@ class CamCanvas(QLabel):
             gy = max(-eh + 1, min(gy, eh - 1))
 
             iris_r = max(2, ew // 4)
-            painter.setBrush(QBrush(QColor(EYE)))
+            painter.setBrush(QBrush(QColor(CYAN)))
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(QPoint(cx + gx, cy + gy), iris_r, iris_r)
             painter.setBrush(QBrush(QColor(BG)))
             painter.drawEllipse(QPoint(cx + gx, cy + gy), max(1, iris_r // 2), max(1, iris_r // 2))
+            painter.setBrush(QBrush(QColor(EYE)))
+            painter.drawEllipse(QPoint(cx + gx + 1, cy + gy - 1), 1, 1)
 
     def _draw_eyebrows(self, painter: QPainter):
         lms = self._landmarks
@@ -385,11 +423,11 @@ class CamCanvas(QLabel):
             x2, y2 = self._lm_px(out)
             intensity = brow_up - brow_dn
             if intensity > 0.12:
-                color, width = QColor(YELLOW), 2
+                color, width = QColor(GREEN), 3
             elif intensity < -0.12:
-                color, width = QColor(RED), 2
+                color, width = QColor(RED), 3
             else:
-                color, width = QColor(GRAY), 1
+                color, width = QColor(GRAY), 2
             painter.setPen(QPen(color, width))
             painter.drawLine(x1, y1, x2, y2)
 
@@ -400,18 +438,18 @@ class CamCanvas(QLabel):
         if elapsed >= self.BANNER_DUR:
             self._banner_msg = ""
             return
-        BH = 26
+        BH = 30
         slide_dur = 0.15
         by = self.CAM_H - BH if elapsed >= slide_dur else self.CAM_H - int(BH * elapsed / slide_dur)
         fade_start = self.BANNER_DUR - 0.4
         alpha = max(0.0, 1.0 - (elapsed - fade_start) / 0.4) if elapsed > fade_start else 1.0
         painter.setOpacity(alpha * 0.92)
-        painter.fillRect(0, by, self.CAM_W, BH, QColor(20, 0, 8))
-        painter.setPen(QPen(QColor(RED), 1))
+        painter.fillRect(0, by, self.CAM_W, BH, QColor(0, 0, 0, 220))
+        painter.setPen(QPen(QColor(WHITE), 1))
         painter.drawLine(0, by, self.CAM_W, by)
         painter.setOpacity(alpha)
-        painter.setPen(QPen(QColor(YELLOW)))
-        painter.setFont(QFont("Courier", 8, QFont.Weight.Bold))
+        painter.setPen(QPen(QColor(WHITE)))
+        painter.setFont(QFont("Courier", 9, QFont.Weight.Bold))
         painter.drawText(0, by, self.CAM_W, BH, Qt.AlignmentFlag.AlignCenter, self._banner_msg)
         painter.setOpacity(1.0)
 
@@ -420,7 +458,7 @@ class CamCanvas(QLabel):
         tx = int((1.0 - float(tx_norm)) * self.CAM_W)
         ty = int(float(ty_norm) * self.CAM_H)
 
-        painter.setPen(QPen(QColor(YELLOW), 2))
+        painter.setPen(QPen(QColor(RED), 2))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawEllipse(QPoint(tx, ty), 18, 18)
         painter.drawLine(tx - 24, ty, tx + 24, ty)
@@ -437,22 +475,22 @@ class CamCanvas(QLabel):
 
         # Top instruction box
         painter.setOpacity(0.86)
-        painter.fillRect(8, 8, self.CAM_W - 16, 26, QColor(10, 10, 10))
+        painter.fillRect(8, 8, self.CAM_W - 16, 30, QColor(7, 16, 26))
         painter.setOpacity(1.0)
         painter.setPen(QPen(QColor(YELLOW), 1))
-        painter.drawRect(8, 8, self.CAM_W - 16, 26)
-        painter.setFont(QFont("Courier", 8, QFont.Weight.Bold))
+        painter.drawRect(8, 8, self.CAM_W - 16, 30)
+        painter.setFont(QFont("Courier", 9, QFont.Weight.Bold))
         txt = f"CALIBRATING {self._calibration_remaining:.1f}s  ({self._calibration_sample_count}/{max(1, self._calibration_sample_target)})"
-        painter.drawText(12, 26, txt)
+        painter.drawText(12, 28, txt)
 
         # Bottom progress bar
         bar_x = 10
         bar_w = self.CAM_W - 20
         bar_y = self.CAM_H - 14
-        painter.fillRect(bar_x, bar_y, bar_w, 8, QColor(30, 30, 30))
+        painter.fillRect(bar_x, bar_y, bar_w, 8, QColor(22, 28, 36))
         fill_w = int(bar_w * self._calibration_progress)
-        painter.fillRect(bar_x, bar_y, fill_w, 8, QColor(255, 255, 0))
-        painter.setPen(QPen(QColor(255, 255, 0), 1))
+        painter.fillRect(bar_x, bar_y, fill_w, 8, QColor(46, 215, 255))
+        painter.setPen(QPen(QColor(46, 215, 255), 1))
         painter.drawRect(bar_x, bar_y, bar_w, 8)
 
     def _draw_calibration_summary(self, painter: QPainter):
@@ -461,11 +499,11 @@ class CamCanvas(QLabel):
         box_w = self.CAM_W - 16
         box_h = 54
         painter.setOpacity(0.88)
-        painter.fillRect(box_x, box_y, box_w, box_h, QColor(8, 8, 8))
+        painter.fillRect(box_x, box_y, box_w, box_h, QColor(7, 16, 26))
         painter.setOpacity(1.0)
         painter.setPen(QPen(QColor(GREEN), 1))
         painter.drawRect(box_x, box_y, box_w, box_h)
-        painter.setFont(QFont("Courier", 8, QFont.Weight.Bold))
+        painter.setFont(QFont("Courier", 9, QFont.Weight.Bold))
         painter.setPen(QPen(QColor(GREEN), 1))
         painter.drawText(box_x + 6, box_y + 16, "CALIBRATION OVERVIEW")
         painter.setPen(QPen(QColor(CYAN), 1))
@@ -492,7 +530,6 @@ class UIOverlay(BaseUIEngine):
         self._lbl_listening  = None
         self._targeting      = None
         self._btn_start      = None
-        self._btn_intro      = None
         self._last_voice_str = ""
         self._fps_dq         = collections.deque(maxlen=30)
         self._timer          = None
@@ -560,49 +597,50 @@ class UIOverlay(BaseUIEngine):
             Qt.WindowType.Tool
         )
         win.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
-        win.setStyleSheet(f"background-color: {BG}; font-family: Courier;")
+        win.setStyleSheet(
+            f"font-family: Courier; background-color: {BG}; color: {WHITE};"
+        )
 
         outer = QVBoxLayout(win)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
         frame = QFrame()
-        frame.setStyleSheet(f"QFrame {{ border: 2px solid {RED}; background-color: {BG}; }}")
+        frame.setStyleSheet(
+            f"QFrame {{ border: 2px solid {WHITE}; background-color: {BG}; }}"
+        )
         layout = QVBoxLayout(frame)
-        layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(4)
+        layout.setContentsMargins(10, 9, 10, 9)
+        layout.setSpacing(6)
 
         # ── Header ────────────────────────────────────────────────────────
-        hdr = QLabel("⬡  G E S T U R O S")
-        hdr.setFont(QFont("Courier", 12, QFont.Weight.Bold))
-        hdr.setStyleSheet(f"color: {RED}; border: none;")
+        hdr = QLabel("GESTUROS")
+        hdr.setFont(QFont("Courier", 15, QFont.Weight.Bold))
+        hdr.setStyleSheet(f"color: {WHITE}; border: none; letter-spacing: 1px;")
         hdr.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hdr)
 
-        layout.addWidget(self._hline(RED))
+        layout.addWidget(self._hline(WHITE))
 
         # ── Action status (big, 15s hold) ─────────────────────────────────
         self._lbl_status = QLabel("AWAITING COMMAND")
-        self._lbl_status.setFont(QFont("Courier", 13, QFont.Weight.Bold))
-        self._lbl_status.setStyleSheet(f"color: {CYAN}; border: none;")
+        self._lbl_status.setFont(QFont("Courier", 16, QFont.Weight.Bold))
+        self._lbl_status.setStyleSheet(f"color: {WHITE}; border: none;")
         self._lbl_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._lbl_status.setWordWrap(True)
         layout.addWidget(self._lbl_status)
 
         # ── Voice listening sub-label ─────────────────────────────────────
         self._lbl_listening = QLabel("Listening for wake word...")
-        self._lbl_listening.setFont(QFont("Courier", 10))
-        self._lbl_listening.setStyleSheet(f"color: {YELLOW}; border: none;")
+        self._lbl_listening.setFont(QFont("Courier", 12))
+        self._lbl_listening.setStyleSheet(f"color: {WHITE}; border: none;")
         self._lbl_listening.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._lbl_listening.setWordWrap(True)
         layout.addWidget(self._lbl_listening)
+        self._btn_start = self._make_button("PLAY + CALIBRATE", WHITE, self._on_start_tracking_clicked)
+        layout.addWidget(self._btn_start)
 
-        button_row = QHBoxLayout()
-        self._btn_start = self._make_button("START + CALIBRATE", GREEN, self._on_start_tracking_clicked)
-        button_row.addWidget(self._btn_start)
-        layout.addLayout(button_row)
-
-        layout.addWidget(self._hline(YELLOW))
+        layout.addWidget(self._hline(WHITE))
 
         # ── Camera feed ───────────────────────────────────────────────────
         self._cam_canvas = CamCanvas()
@@ -612,22 +650,24 @@ class UIOverlay(BaseUIEngine):
         cam_row.addStretch()
         layout.addLayout(cam_row)
 
-        layout.addWidget(self._hline(YELLOW))
+        layout.addWidget(self._hline(WHITE))
 
         # ── Commands ──────────────────────────────────────────────────────
-        cmd_hdr = QLabel("── VOICE COMMANDS ──")
-        cmd_hdr.setFont(QFont("Courier", 10, QFont.Weight.Bold))
-        cmd_hdr.setStyleSheet(f"color: {YELLOW}; border: none;")
+        cmd_hdr = QLabel("VOICE COMMANDS")
+        cmd_hdr.setFont(QFont("Courier", 12, QFont.Weight.Bold))
+        cmd_hdr.setStyleSheet(f"color: {WHITE}; border: none;")
         cmd_hdr.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(cmd_hdr)
 
         for action, phrase, result in COMMANDS:
             layout.addWidget(self._cmd_row(action, phrase, result))
 
-        layout.addWidget(self._hline(RED))
+        layout.addWidget(self._hline(WHITE))
 
         outer.addWidget(frame)
         win.adjustSize()
+        # Keep the panel compact while increasing legibility.
+        win.setFixedWidth(self._cam_canvas.CAM_W + 44)
 
         win.show()
         self._win = win
@@ -661,45 +701,40 @@ class UIOverlay(BaseUIEngine):
         row.setStyleSheet("border: none; background: transparent;")
         h = QHBoxLayout(row)
         h.setContentsMargins(2, 1, 2, 1)
-        h.setSpacing(6)
+        h.setSpacing(4)
 
         a = QLabel(action)
-        a.setFixedWidth(42)
-        a.setFont(QFont("Courier", 9, QFont.Weight.Bold))
-        a.setStyleSheet(f"color: {RED}; border: none;")
+        a.setFixedWidth(48)
+        a.setFont(QFont("Courier", 11, QFont.Weight.Bold))
+        a.setStyleSheet(f"color: {WHITE}; border: none;")
         h.addWidget(a)
 
-        p = QLabel(phrase)
-        p.setFont(QFont("Courier", 10, QFont.Weight.Bold))
-        p.setStyleSheet(f"color: {YELLOW}; border: none;")
-        h.addWidget(p)
-
-        r = QLabel(result)
-        r.setFont(QFont("Courier", 9))
-        r.setStyleSheet(f"color: {CYAN}; border: none;")
-        h.addWidget(r)
-        h.addStretch()
+        detail = QLabel(f"{phrase}   {result}")
+        detail.setFont(QFont("Courier", 11))
+        detail.setStyleSheet(f"color: {WHITE}; border: none;")
+        detail.setWordWrap(True)
+        h.addWidget(detail, 1)
         return row
 
     def _make_button(self, text: str, border_color: str, click_handler):
         btn = QPushButton(text)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.setFont(QFont("Courier", 9, QFont.Weight.Bold))
-        btn.setFixedHeight(28)
+        btn.setFont(QFont("Courier", 11, QFont.Weight.Bold))
+        btn.setFixedHeight(34)
         btn.setStyleSheet(
             "QPushButton {"
             f"color: {border_color};"
-            "background-color: #121212;"
+            "background-color: #0b0b0b;"
             f"border: 1px solid {border_color};"
-            "padding: 4px 8px;"
+            "padding: 5px 10px;"
             "}"
-            "QPushButton:hover { background-color: #1c1c1c; }"
-            "QPushButton:pressed { background-color: #050505; }"
+            "QPushButton:hover { background-color: #1a1a1a; }"
+            "QPushButton:pressed { background-color: #030303; }"
         )
         btn.clicked.connect(click_handler)
         return btn
 
-    def _on_start_tracking_clicked(self):
+    def _start_calibration_and_intro(self):
         self._calibration_handshake_sent = False
         self.shared_state["tracking_paused"] = False
         self.shared_state["start_tracking_requested"] = True
@@ -707,29 +742,28 @@ class UIOverlay(BaseUIEngine):
         self.shared_state["calibration_allow_start"] = False
         self.shared_state["calibration_summary_active"] = False
         if self.shared_state.get("targeting_overlay_ready", False):
-            self.shared_state["currently_doing"] = "START REQUESTED (WAITING FOR CAMERA FRAME)"
+            self.shared_state["currently_doing"] = "PLAY REQUESTED (WAITING FOR CAMERA FRAME)"
         else:
-            self.shared_state["currently_doing"] = "START REQUESTED (WAITING FOR CALIBRATION OVERLAY)"
-        self.shared_state["voice_status"] = "STARTED: CALIBRATION + INTRO"
+            self.shared_state["currently_doing"] = "PLAY REQUESTED (WAITING FOR CALIBRATION OVERLAY)"
+        self.shared_state["voice_status"] = "STARTED: GESTUROS INTRO + CALIBRATION"
         if self._cam_canvas:
             self._cam_canvas.trigger_banner("STARTED: CALIBRATING")
-        if self.audio_player and hasattr(self.audio_player, "play_judge_intro"):
-            self.audio_player.play_judge_intro()
-        elif self.audio_player:
-            self.audio_player.speak(
-                "Welcome to GesturOS. I will now calibrate your neutral pose. Move your blue marker into each red target and hold briefly."
-            )
+        if not self.shared_state.get("dictation_active", False):
+            if self.audio_player and hasattr(self.audio_player, "play_gesturos_intro"):
+                self.audio_player.play_gesturos_intro()
+            elif self.audio_player and hasattr(self.audio_player, "play_judge_intro"):
+                self.audio_player.play_judge_intro()
+            elif self.audio_player:
+                self.audio_player.speak(
+                    "Welcome to GesturOS. I will now calibrate your neutral pose. Move your blue marker into each red target and hold briefly."
+                )
         if self.audio_player:
             self.audio_player.play('lock_engage')
 
-    def _on_play_intro_clicked(self):
-        if self.audio_player and hasattr(self.audio_player, "play_judge_intro"):
-            self.audio_player.play_judge_intro()
-            self.shared_state["voice_status"] = "Playing judge intro..."
-        elif self.audio_player:
-            self.audio_player.speak(
-                "This is GesturOS. It enables hands free computer control with face tracking, voice commands, and an assisted web agent."
-            )
+    def _on_start_tracking_clicked(self):
+        if self._btn_start:
+            self._btn_start.hide()
+        self._start_calibration_and_intro()
 
     def _update_frame(self):
         try:
@@ -811,15 +845,18 @@ class UIOverlay(BaseUIEngine):
             )
 
             if self._btn_start:
+                tracking_paused = bool(self.shared_state.get("tracking_paused", False))
+                if tracking_paused:
+                    self._btn_start.show()
+                else:
+                    self._btn_start.hide()
+
                 if self.shared_state.get("calibration_active", False):
                     self._btn_start.setText("CALIBRATING...")
                     self._btn_start.setEnabled(False)
                 else:
                     self._btn_start.setEnabled(True)
-                    if self.shared_state.get("tracking_paused", False):
-                        self._btn_start.setText("START + CALIBRATE")
-                    else:
-                        self._btn_start.setText("RECALIBRATE")
+                    self._btn_start.setText("PLAY + CALIBRATE")
 
             if self._targeting:
                 self._targeting.update_bboxes()
@@ -829,4 +866,5 @@ class UIOverlay(BaseUIEngine):
 
         except Exception as e:
             logger.error(f"_update_frame error: {e}", exc_info=True)
+
 
