@@ -45,4 +45,10 @@ default_config = {
     "MAGNETISM_SEARCH_RADIUS": 150,
     "MAGNETISM_PULL_STRENGTH": 0.6,
     "MAGNETISM_TRIGGER_DISTANCE": 40,
+
+    # --- AI Models ---
+    # Fast path OS command translation
+    "LLM_FLASH_MODEL": "gemini-1.5-flash",
+    # Complex autonomous computer use tasks
+    "LLM_AGENT_MODEL": "gemini-2.5-computer-use-preview-10-2025"
 }

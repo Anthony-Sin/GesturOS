@@ -74,7 +74,7 @@ class GeminiDesktopAgent(BaseBlindAgent):
             except Exception as e:
                 print(f"Mic init error: {e}")
 
-        self.speak("Blind Accessibility Mode activated. Say 'Agent' to give a command, or say 'Agent describe my screen'.")
+        self.speak("AI Agent ready. Say 'Agent' followed by a command to begin.")
 
         thread = threading.Thread(target=self._run_loop, daemon=True)
         thread.start()
@@ -143,10 +143,6 @@ class GeminiDesktopAgent(BaseBlindAgent):
         if self.intent_router.process(command):
             return
 
-        if "describe" in command and ("screen" in command or "page" in command):
-            self._handle_describe()
-            return
-
         # --- Tier 2: Gemini Flash PyAutoGUI Code Generation ---
         if self.client:
             flash_prompt = f"""
@@ -155,8 +151,9 @@ If this command is a simple OS action (like scrolling, pressing a key, typing, g
 If the command requires seeing the screen to know where to click or what to interact with (e.g., "click the login button", "find my email", "open google chrome"), you MUST output exactly the word "FALLBACK" and nothing else.
 """
             try:
+                flash_model = self.config.get("LLM_FLASH_MODEL", "gemini-1.5-flash")
                 response = self.client.models.generate_content(
-                    model='gemini-1.5-flash',
+                    model=flash_model,
                     contents=flash_prompt
                 )
                 output = response.text.strip()
@@ -205,29 +202,6 @@ If the command requires seeing the screen to know where to click or what to inte
         print("[Intent Router] Routing to Full Gemini 2.5 Agent...")
         self._handle_agent_loop(command)
 
-    def _handle_describe(self):
-        self.speak("Taking a look...")
-        if not self.client:
-            self.speak("API key missing. Cannot process image.")
-            return
-
-        screenshot_bytes = self._capture_screen_bytes()
-
-        prompt = "Describe what is currently on the computer screen. Read out any important text, tell me what applications are open, and describe the general layout so a blind person can understand the context. Keep it concise but descriptive."
-
-        try:
-            response = self.client.models.generate_content(
-                model='gemini-1.5-flash',
-                contents=[
-                    prompt,
-                    types.Part.from_bytes(data=screenshot_bytes, mime_type='image/png')
-                ]
-            )
-            self.speak(response.text)
-        except Exception as e:
-            print(f"Gemini Describe Error: {e}")
-            self.speak("Sorry, I encountered an error while trying to describe the screen.")
-
     # --- Agent Loop Translation ---
     def _denormalize_x(self, x: int) -> int:
         return int(x / 1000 * self.screen_width)
@@ -249,81 +223,106 @@ If the command requires seeing the screen to know where to click or what to inte
             print(f"  -> Agent Executing: {fname} with args: {args}")
 
             try:
-                if fname == "open_web_browser":
-                    # PyAutoGUI can't directly "open a browser" reliably across OSs.
-                    # We can use hotkeys (Win+S, type Chrome) but it's brittle.
-                    # Let's simulate a click on the taskbar if args exist, or just press Win key.
-                    print("  -> Ignoring open_web_browser. Please use PyAutoGUI to navigate to the browser.")
-                    action_result = {"status": "Browser command received, but agent must manually click icon."}
-
-                elif fname == "click_at":
+                if fname == "click":
                     actual_x = self._denormalize_x(args["x"])
                     actual_y = self._denormalize_y(args["y"])
                     pyautogui.click(actual_x, actual_y)
-
-                elif fname == "type_text_at":
+                elif fname == "type":
                     actual_x = self._denormalize_x(args["x"])
                     actual_y = self._denormalize_y(args["y"])
                     text = args["text"]
                     press_enter = args.get("press_enter", False)
-
                     pyautogui.click(actual_x, actual_y)
-                    # Clear simple (Ctrl+A, Backspace)
-                    pyautogui.hotkey('ctrl', 'a')
-                    pyautogui.press('backspace')
+                    # Use a short pause
+                    time.sleep(0.1)
                     pyautogui.write(text, interval=0.01)
                     if press_enter:
                         pyautogui.press('enter')
+                elif fname == "scroll":
+                    # args "direction" and "amount" usually
+                    # amount is usually an arbitrary scale in pyautogui, mapping needed, simple for now
+                    amount = args.get("amount", 1)
+                    direction = args.get("direction", "down")
+                    if direction == "down":
+                        pyautogui.scroll(-300 * amount)
+                    else:
+                        pyautogui.scroll(300 * amount)
                 else:
                     print(f"Warning: Unimplemented function {fname}")
                     action_result = {"error": f"Function {fname} not supported by this OS layer yet."}
 
                 time.sleep(1.5) # Wait for UI to render
-
             except Exception as e:
                 print(f"Error executing {fname}: {e}")
                 action_result = {"error": str(e)}
 
             results.append((fname, action_result))
-
         return results
 
     def _get_function_responses(self, results):
-        screenshot_bytes = self._capture_screen_bytes()
+        # We need a fresh screenshot to show the state *after* the actions occurred
+        # However, the google-genai SDK for Computer Use expects the screenshot
+        # to be passed alongside the FunctionResponse in the parts list, not inside it.
         function_responses = []
 
         for name, result in results:
-            # We don't have URLs in OS-level control easily, just send empty
-            response_data = {"url": ""}
+            response_data = {}
             response_data.update(result)
             function_responses.append(
                 types.FunctionResponse(
                     name=name,
-                    response=response_data,
-                    parts=[types.FunctionResponsePart(
-                            inline_data=types.FunctionResponseBlob(
-                                mime_type="image/png",
-                                data=screenshot_bytes))
-                    ]
+                    response=response_data
                 )
             )
         return function_responses
 
+    def _ask_confirmation(self) -> bool:
+        """Asks the user for confirmation to proceed."""
+        self.speak("Safety confirmation required. Should I proceed? Say yes or no.")
+        print("[Agent]: Waiting for user confirmation (yes/no)...")
+
+        # Start listening for an answer
+        timeout = 10
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                with self.microphone as source:
+                    audio = self.recognizer.listen(source, timeout=2, phrase_time_limit=5)
+                text = self.recognizer.recognize_google(audio).lower()
+                print(f"[Heard Confirmation]: {text}")
+
+                if "yes" in text or "yeah" in text or "sure" in text or "ok" in text or "do it" in text:
+                    self.speak("Proceeding.")
+                    return True
+                elif "no" in text or "stop" in text or "cancel" in text or "don't" in text:
+                    self.speak("Action cancelled.")
+                    return False
+            except sr.WaitTimeoutError:
+                continue
+            except sr.UnknownValueError:
+                continue
+            except Exception as e:
+                print(f"Confirmation listen error: {e}")
+                break
+
+        self.speak("No confirmation received. Cancelling.")
+        return False
+
     def _handle_agent_loop(self, user_command):
-        self.speak(f"Okay, I will try to: {user_command}")
+        self.speak(f"Okay, taking over. I will try to: {user_command}")
         if not self.client:
             self.speak("API key missing.")
             return
 
+        # Setup config for Computer Use
         config = types.GenerateContentConfig(
+            system_instruction="You are a helpful, autonomous UI agent. Use the screen context to execute the user's tasks. Do not output require_confirmation unless executing a highly destructive action (like deleting a file or sending an email). Keep text output extremely brief.",
             tools=[types.Tool(computer_use=types.ComputerUse(
-                environment=types.Environment.ENVIRONMENT_BROWSER
+                environment=types.Environment.ENVIRONMENT_MAC # We use generic environment for now since BROWSER has limited tools
             ))],
         )
 
         initial_screenshot = self._capture_screen_bytes()
-
-        # We start fresh conversation history for each major task
         contents = [
             Content(role="user", parts=[
                 Part(text=user_command),
@@ -331,12 +330,25 @@ If the command requires seeing the screen to know where to click or what to inte
             ])
         ]
 
-        turn_limit = 5
+        turn_limit = 10
         for i in range(turn_limit):
             print(f"\n--- Agent Turn {i+1} ---")
+
+            # Listen briefly for "stop" to allow user interrupt mid-loop
             try:
+                with self.microphone as source:
+                    audio = self.recognizer.listen(source, timeout=0.5, phrase_time_limit=2)
+                text = self.recognizer.recognize_google(audio).lower()
+                if "agent stop" in text or "stop agent" in text or "cancel" in text:
+                    self.speak("Stopping the agent.")
+                    break
+            except Exception:
+                pass # No interrupt heard
+
+            try:
+                agent_model = self.config.get("LLM_AGENT_MODEL", "gemini-2.5-computer-use-preview-10-2025")
                 response = self.client.models.generate_content(
-                    model='gemini-2.5-computer-use-preview-10-2025',
+                    model=agent_model,
                     contents=contents,
                     config=config,
                 )
@@ -344,25 +356,38 @@ If the command requires seeing the screen to know where to click or what to inte
                 candidate = response.candidates[0]
                 contents.append(candidate.content)
 
+                # Check if confirmation is required by safety/tool flags
+                # (Some tool configurations or API responses may embed this flag, but we check if we need manual confirmation).
+                # Note: Currently, Computer Use doesn't have a strict explicit standard require_confirmation output format
+                # unless explicitly prompted or using the ToolCall. We can parse intent for safety.
+                # If a function call exists, check if it's destructive, or if the model says so in text.
+                text_response = " ".join([part.text for part in candidate.content.parts if part.text]).lower()
+                if "require_confirmation" in text_response or "confirm" in text_response:
+                     if not self._ask_confirmation():
+                         break
+
                 has_function_calls = any(part.function_call for part in candidate.content.parts)
                 if not has_function_calls:
-                    text_response = " ".join([part.text for part in candidate.content.parts if part.text])
-                    print("Agent finished:", text_response)
-                    self.speak(text_response)
+                    final_text = " ".join([part.text for part in candidate.content.parts if part.text])
+                    print("Agent finished:", final_text)
+                    self.speak("Task complete.")
                     break
 
                 # Execute actions
                 results = self._execute_function_calls(candidate)
 
-                # Capture state
+                # Capture fresh screenshot after action
+                new_screenshot = self._capture_screen_bytes()
                 function_responses = self._get_function_responses(results)
 
-                contents.append(
-                    Content(role="user", parts=[Part(function_response=fr) for fr in function_responses])
-                )
+                # The Computer Use SDK requires returning the function responses AND the new screenshot
+                parts = [Part.from_function_response(name=fr.name, response=fr.response) for fr in function_responses]
+                parts.append(Part.from_bytes(data=new_screenshot, mime_type='image/png'))
+
+                contents.append(Content(role="user", parts=parts))
             except Exception as e:
                 print(f"Agent turn failed: {e}")
                 self.speak("I encountered an issue while trying to complete the task.")
                 break
-
-        self.speak("Task complete.")
+        else:
+             self.speak("Turn limit reached.")

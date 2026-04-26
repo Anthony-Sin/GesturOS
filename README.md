@@ -1,37 +1,43 @@
-AccessiBot: Hands-Free Controller & Blind Assistant
-A local Python application that acts as a comprehensive accessibility suite. It translates natural head movements and facial expressions—captured via a webcam using MediaPipe—into precise OS-level mouse and keyboard actions. It also features a fully voice-activated AI Agent designed for blind users, powered by Gemini 2.5's Computer Use capabilities.
+# AccessiBot: Hands-Free Accessibility Suite
+A comprehensive Python application designed for motor-impaired users. It translates natural head movements and voice commands into precise OS-level interactions, combining computer vision cursor tracking with a fully autonomous, voice-activated AI Desktop Agent.
 
-Core Features
-Voice-Activated Launcher: Say "I can't use my hands" to boot into Standard Head-Tracking mode, or say "I can't see" to boot into the Gemini Blind Assist mode.
-Cursor Engine: Moves your mouse cursor based on the position of your nose. Uses a dynamic 1 Euro Filter to eliminate jitter at slow speeds while remaining lag-free at high speeds. Includes an asymmetrical "Active Zone" multiplier to minimize physical neck strain, and a Micro-Deadzone for pixel-perfect clicking stability.
-Action Dispatcher: Translates facial expressions into discrete OS actions:
-Blink (Close Both Eyes for 0.4s) -> Left Click
-Jaw Open -> Scroll Down
-Smile -> Enter
-System Navigator: Translates extreme head poses into OS macros for seamless web browsing:
-Yaw Left -> Browser Back (Alt + Left)
-Yaw Right -> Browser Forward (Alt + Right)
-Pitch Up -> Scroll Up
-Predictive Target Magnetism: Employs real-time OpenCV edge-detection (mss) around your cursor. When hovering near clickable UI elements (like buttons or text boxes), the engine generates a subtle magnetic pull, snapping your cursor precisely to the target.
-Continuous Voice Dictation: Say "transcribe me" to enter dictation mode. The application automatically pauses all head-tracking and macros so you can speak freely, continuously typing out your words natively via PyAutoGUI. Say "transcribe done" to exit dictation and instantly resume tracking.
-Procedural Audio Feedback: Uses pygame.mixer to generate low-latency, multi-sensory audio cues (beeps for clicks, ascending chimes for dragging/dictation) mathematically without relying on external .wav files.
-HUD UI Overlay: A modern, draggable, borderless Tkinter HUD. It features real-time eye-tracking crosshairs, a fading nose-movement tail, dictation status text, and a live FPS performance counter.
-Blind Accessibility Mode: A specialized mode that boots an autonomous Gemini 2.5 Agent. Say "Agent, describe my screen" to get a visual layout read to you via Text-to-Speech (pyttsx3). Issue complex instructions (e.g. "Agent, open Notepad and write a poem") and the LLM will securely parse its own UI logic into native OS commands.
-Panic Hotkey: Press Alt + Q at any time to instantly and safely force-quit the application.
-Installation
-Clone the repository.
-Ensure you have Python 3.8+ installed.
-Install the dependencies:
-pip install -r requirements.txt
-(Optional - For Blind Mode): Create a .env file in the root directory and add your Google Gemini API key:
-GEMINI_API_KEY=your_api_key_here
-Usage
-Run the application to open the Voice-Activated Launcher:
+## Core Features
+*   **Cursor Engine**: Moves your mouse cursor based on the position of your nose using MediaPipe. Features a dynamic 1 Euro Filter to eliminate jitter and an asymmetrical "Active Zone" to minimize physical neck strain.
+*   **Action Dispatcher**: Translates facial expressions into discrete OS actions:
+    *   Blink (Close Both Eyes for 0.25s) -> Left Click
+*   **Voice Control & Dictation**:
+    *   Say "transcribe me" to enter continuous dictation mode and type hands-free. Say "transcribe done" to exit.
+    *   Say "press [key]" (e.g., "press tab", "press enter") to execute keyboard commands.
+*   **Predictive Target Magnetism**: Employs real-time OpenCV edge-detection around your cursor. When hovering near clickable UI elements, the engine generates a subtle magnetic pull to snap your cursor precisely to the target.
+*   **Autonomous Gemini Desktop Agent**: A fully voice-activated AI assistant. Say "Agent, [task]" (e.g., "Agent, fill out this form") to trigger the Gemini Computer Use model. The agent will take screenshots, analyze the screen, and execute multi-step mouse and keyboard actions autonomously. For highly destructive actions, it will ask for verbal confirmation via ElevenLabs TTS before proceeding.
+*   **Procedural Audio Feedback**: Uses `pygame.mixer` to generate low-latency audio cues for clicks and tracking modes.
+*   **Modern UI Overlay**: A sleek, minimal, dark-mode Tkinter overlay positioned in the bottom-right corner. It features a live webcam feed with a retractable sidebar containing voice/face instructions, dynamic crosshairs, eye-state indicators, and a status banner.
+*   **Panic Hotkey**: Press `Alt + Q` at any time to instantly and safely force-quit the application.
+
+## Installation
+1. Clone the repository.
+2. Ensure you have Python 3.10+ installed.
+3. Install the dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. **API Keys (Required)**: Create a `.env` file in the root directory and add the following keys exactly as written:
+   ```env
+   GEMINI_API_KEY=your_google_gemini_key_here
+   ELEVENLABS_API_KEY=your_elevenlabs_tts_key_here
+   ```
+
+## Model Configuration
+You can configure which Gemini models are used for specific tasks by editing the `default_config` dictionary in `config.py`.
+*   `LLM_FLASH_MODEL`: Used for fast-path reasoning and simple intent translation (Default: `gemini-1.5-flash`).
+*   `LLM_AGENT_MODEL`: Used for the multi-step visual Computer Use Agent loop (Default: `gemini-2.5-computer-use-preview-10-2025`).
+
+## Usage
+Run the application to boot directly into hands-free mode:
+```bash
 python main.py
-(Alternatively, run python launcher.py directly).
-Select your mode via voice command or by clicking the buttons.
-If using Hands-Free Mode, look at the camera to move the cursor, intentionally blink to click, and use head poses to navigate.
-If using Blind Mode, say the wake word "Agent" followed by a command.
+```
+Look at the camera to move the cursor. Expand the UI sidebar via the arrow toggle to view the available commands. Use "Agent [command]" for complex autonomous tasks.
 Suggestions for Future Improvements (Hackathon Next-Steps)
 Local LLM Integration: Replace the Google Web Speech API with a local, privacy-first offline model like Whisper.cpp. You could then pipe the transcribed text through an LLM (like Llama 3 via Ollama) to execute complex semantic commands (e.g., "Summarize this page" or "Open Spotify and play Jazz").
 Gaze Tracking: Currently, the cursor is bound to the nose tip. Integrating a dedicated gaze-tracking model (like GazeTracking) would allow the user to point with their eyes while keeping their head perfectly still, reserving head movements strictly for scrolling or window management.

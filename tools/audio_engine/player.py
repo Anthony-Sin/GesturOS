@@ -2,7 +2,6 @@ import os
 import io
 import pygame
 import numpy as np
-import pyttsx3
 import queue
 import platform
 import threading
@@ -53,6 +52,13 @@ class AudioPlayer:
                 print("Audio Engine initialized successfully.")
             except Exception as e:
                 print(f"Failed to initialize audio engine: {e}")
+                # We should still initialize tts_queue for fallback text printing even if pygame fails
+                if not hasattr(self, 'elevenlabs_client'):
+                    self.elevenlabs_client = None
+                if not hasattr(self, 'tts_queue'):
+                    self.tts_queue = queue.Queue()
+                    self.tts_thread = threading.Thread(target=self._tts_worker, daemon=True)
+                    self.tts_thread.start()
                 AudioPlayer._initialized = False
 
     def _generate_beep(self, frequency, duration, wave_type='sine', volume=0.5):
@@ -125,24 +131,12 @@ class AudioPlayer:
         self.tts_queue.put(text)
 
     def _tts_worker(self):
-        # Local initialization of pyttsx3 to avoid cross-thread COM exceptions
-        tts_fallback = None
-        try:
-            if platform.system() == "Windows":
-                # Ensure COM is initialized for this background thread
-                import pythoncom
-                pythoncom.CoInitialize()
-            tts_fallback = pyttsx3.init()
-            tts_fallback.setProperty('rate', 150)
-        except Exception as e:
-            print(f"Failed to initialize pyttsx3 inside TTS thread: {e}")
-
         while True:
             text = self.tts_queue.get()
             if text is None:
                 break
 
-            use_fallback = True
+            played_audio = False
 
             if self.elevenlabs_client:
                 try:
@@ -172,17 +166,13 @@ class AudioPlayer:
                             while pygame.mixer.music.get_busy():
                                 pygame.time.Clock().tick(10)
 
-                            use_fallback = False
+                            played_audio = True
                         except pygame.error as e:
                             print(f"Pygame music failed to play ElevenLabs audio: {e}")
                 except Exception as e:
                     print(f"ElevenLabs generation failed: {e}")
 
-            if use_fallback and tts_fallback:
-                try:
-                    tts_fallback.say(text)
-                    tts_fallback.runAndWait()
-                except Exception as e:
-                    print(f"pyttsx3 fallback execution failed: {e}")
+            if not played_audio:
+                print(f"[Audio Engine Backup Print]: {text}")
 
             self.tts_queue.task_done()
