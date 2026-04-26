@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 import mss
 import pyautogui
+import ast
 import pyperclip
 import platform
 import speech_recognition as sr
@@ -17,6 +18,7 @@ from google import genai
 from google.genai import types
 from google.genai.types import Content, Part
 from tools.interfaces import BaseBlindAgent
+from tools.agent_engine.intent_router import IntentRouter
 
 load_dotenv()
 
@@ -52,6 +54,7 @@ class GeminiDesktopAgent(BaseBlindAgent):
 
         self.running = False
         self.conversation_history = []
+        self.intent_router = IntentRouter(self)
 
     def speak(self, text):
         if self.audio_player:
@@ -130,66 +133,14 @@ class GeminiDesktopAgent(BaseBlindAgent):
     def _route_intent(self, command):
         """
         Routes the command through a 3-tier intent system:
-        1. Hardcoded regex/string matching for zero-token local actions.
-        2. Gemini Flash (1.5) for translating simple instructions to literal PyAutoGUI code.
-        3. Full Gemini 2.5 Computer Use Agent for complex visual tasks.
+        1. IntentRouter: Zero-token fast-path OS actions.
+        2. Gemini Flash (1.5): Translating simple instructions to literal PyAutoGUI code.
+        3. Full Gemini 2.5: Complex visual tasks via Computer Use Agent.
         """
         print(f"[Intent Router] Processing: '{command}'")
 
-        # --- Tier 1: Hardcoded / Local Intents ---
-        if "what's focused" in command or "what is focused" in command or "where am i" in command or "what window" in command:
-            try:
-                title = "Unknown"
-                if platform.system() == "Windows":
-                    import pygetwindow as gw
-                    active_window = gw.getActiveWindow()
-                    title = active_window.title if active_window else "Unknown"
-                elif platform.system() == "Linux":
-                    try:
-                        from ewmh import EWMH
-                        ewmh = EWMH()
-                        active_window = ewmh.getActiveWindow()
-                        if active_window:
-                            title_bytes = ewmh.getWmName(active_window)
-                            title = title_bytes.decode('utf-8') if isinstance(title_bytes, bytes) else str(title_bytes)
-                    except ImportError:
-                        pass
-
-                self.speak(f"The currently focused window is: {title}")
-            except Exception as e:
-                self.speak("I could not determine the focused window.")
-            return
-
-        if any(phrase in command for phrase in ["read this", "what does this say", "read it to me", "summarize this page", "what is this page about"]):
-            self.speak("Reading...")
-            try:
-                # Copy all text from the active window to the clipboard
-                pyautogui.hotkey('ctrl', 'a')
-                time.sleep(0.1)
-                pyautogui.hotkey('ctrl', 'c')
-                time.sleep(0.1)
-
-                copied_text = pyperclip.paste()
-
-                if copied_text and copied_text.strip():
-                    if len(copied_text) > 1000: # Summarize if long
-                        prompt = f"Briefly summarize the following text for a blind user:\n\n{copied_text[:5000]}"
-                        try:
-                            response = self.client.models.generate_content(
-                                model='gemini-1.5-flash',
-                                contents=prompt
-                            )
-                            self.speak(response.text)
-                        except Exception as e:
-                            print(f"Summarization error: {e}")
-                            self.speak("I copied the text, but encountered an error summarizing it.")
-                    else:
-                        self.speak(copied_text)
-                else:
-                    self.speak("I could not find any text to read.")
-            except Exception as e:
-                print(f"Read intent error: {e}")
-                self.speak("Sorry, I could not read the text.")
+        # --- Tier 1: Fast-Path Intents ---
+        if self.intent_router.process(command):
             return
 
         if "describe" in command and ("screen" in command or "page" in command):
@@ -211,15 +162,39 @@ If the command requires seeing the screen to know where to click or what to inte
                 output = response.text.strip()
 
                 if output != "FALLBACK" and "pyautogui." in output:
-                    print(f"[Intent Router] Executing Flash Code: {output}")
+                    print(f"[Intent Router] Attempting to securely execute Flash Code: {output}")
                     try:
-                        # Secure-ish local execution environment for pyautogui
-                        local_env = {'pyautogui': pyautogui, 'time': time}
-                        exec(output, {"__builtins__": {}}, local_env)
-                        # Optionally, add a subtle confirmation sound here if requested
+                        # Secure Execution via AST parsing
+                        tree = ast.parse(output)
+                        for node in tree.body:
+                            if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+                                func = node.value.func
+                                # Ensure the call is a method on the pyautogui module
+                                if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == 'pyautogui':
+                                    method_name = func.attr
+                                    # Safely extract literal arguments
+                                    args = []
+                                    for arg in node.value.args:
+                                        if isinstance(arg, ast.Constant): # Python 3.8+
+                                            args.append(arg.value)
+                                        elif isinstance(arg, ast.Str): # Python < 3.8 fallback
+                                            args.append(arg.s)
+                                        elif isinstance(arg, ast.Num):
+                                            args.append(arg.n)
+                                        else:
+                                            raise ValueError("Unsupported argument type generated by LLM.")
+
+                                    # Execute the authorized pyautogui method
+                                    if hasattr(pyautogui, method_name):
+                                        print(f" -> Executing: pyautogui.{method_name}({args})")
+                                        getattr(pyautogui, method_name)(*args)
+                                    else:
+                                        print(f" -> Denied: {method_name} is not a valid pyautogui function.")
+                                else:
+                                     print(" -> Denied: Only pyautogui calls are allowed.")
                         return
                     except Exception as e:
-                        print(f"Failed to execute Flash code: {e}. Falling back.")
+                        print(f"Failed to securely execute Flash code: {e}. Falling back.")
                         # Fallthrough to Tier 3 on execution error
                 else:
                     print(f"[Intent Router] Flash returned FALLBACK for command: '{command}'")
