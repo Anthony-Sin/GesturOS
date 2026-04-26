@@ -3,7 +3,7 @@ default_config = {
     # --- Vision Pipeline ---
     "TARGET_FPS": 30,
     # Threshold for skipping MediaPipe processing on near-identical frames. Higher = more skips.
-    "FRAME_DIFF_THRESHOLD": 2.0,
+    "FRAME_DIFF_THRESHOLD": 1.0,
 
     # --- Cursor Engine ---
     # Raising active zone centers moves the start point to track head positioning.
@@ -12,16 +12,16 @@ default_config = {
 
     # Shrinking width/height makes the cursor move more distance per degree of head movement.
     # We shrink these so the user needs very small head movements.
-    "ACTIVE_ZONE_WIDTH": 0.12,
-    "ACTIVE_ZONE_HEIGHT": 0.05,
+    "ACTIVE_ZONE_WIDTH": 0.08,
+    "ACTIVE_ZONE_HEIGHT": 0.03,
 
     # Lowering alpha increases smoothing so the cursor glides rather than snapping around.
-    "BASE_ALPHA": 0.03,
-    "PRECISION_ALPHA": 0.005,
+    "BASE_ALPHA": 0.15,
+    "PRECISION_ALPHA": 0.05,
 
     # Raising velocity thresholds prevents micro-head movements (wobbles) from moving the cursor.
-    "VELOCITY_THRESHOLD": 0.03,
-    "DEADZONE_VELOCITY": 0.02,
+    "VELOCITY_THRESHOLD": 0.003,
+    "DEADZONE_VELOCITY": 0.002,
 
     # --- Action Dispatcher (Blendshapes) ---
     # Raising the blink threshold requires a harder/more closed eye blink to register.

@@ -19,8 +19,9 @@ class CursorEngine(BaseCursorEngine):
         self.screen_w, self.screen_h = pyautogui.size()
 
         # 1 Euro Filter for advanced jitter-free smoothing
-        self.filter_x = OneEuroFilter(min_cutoff=0.01, beta=0.8)
-        self.filter_y = OneEuroFilter(min_cutoff=0.01, beta=0.8)
+        # Lowering min_cutoff drastically slows down the cursor at low speeds, fixing the "too fast" issue directly
+        self.filter_x = OneEuroFilter(min_cutoff=0.001, beta=0.8)
+        self.filter_y = OneEuroFilter(min_cutoff=0.001, beta=0.8)
 
         self.last_raw_x = None
         self.last_raw_y = None
