@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import pyautogui
 import queue
 import time
@@ -36,7 +39,7 @@ class ActionDispatcher(BaseActionDispatcher):
         self.scroll_thread = threading.Thread(target=self._continuous_scroll_loop, daemon=True)
         self.scroll_thread.start()
 
-        print("Action Dispatcher started.")
+        logger.info("Action Dispatcher started.")
         return thread
 
     def stop(self):
@@ -77,10 +80,12 @@ class ActionDispatcher(BaseActionDispatcher):
                     else:
                         duration = now - self.blink_start_time
                         if duration >= self.blink_duration_threshold and (now - self.last_blink_time > self.cooldown_blink):
-                            print("Action: Left Click triggered!")
+                            logger.info("Action: Left Click triggered!")
                             if self.audio_player:
                                 self.audio_player.play('click')
                             pyautogui.click()
+                            with self.shared_state["lock"]:
+                                self.shared_state["clicks_saved"] = self.shared_state.get("clicks_saved", 0) + 1
                             self.last_blink_time = now
                             self.blink_start_time = None
                 else:
@@ -136,4 +141,4 @@ class ActionDispatcher(BaseActionDispatcher):
             except queue.Empty:
                 continue
             except Exception as e:
-                print(f"Error in ActionDispatcher: {e}")
+                logger.exception(f"Error in ActionDispatcher: {e}")

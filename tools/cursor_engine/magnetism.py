@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import threading
 import time
 import mss
@@ -20,7 +23,7 @@ class TargetMagnetism(BaseMagnetismEngine):
         self.running = True
         thread = threading.Thread(target=self._run, daemon=True)
         thread.start()
-        print("Predictive Target Magnetism started.")
+        logger.info("Predictive Target Magnetism started.")
         return thread
 
     def stop(self):

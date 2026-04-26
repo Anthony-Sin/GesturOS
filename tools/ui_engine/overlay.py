@@ -6,7 +6,10 @@ import collections
 import time
 import numpy as np
 import random
+import logging
 from tools.interfaces import BaseUIEngine
+
+logger = logging.getLogger(__name__)
 
 # --- COLOR PALETTE ---
 COLORS = {
@@ -104,6 +107,13 @@ class UIOverlay(BaseUIEngine):
             col = i % 2
             self._add_ability_card(title, desc, row, col)
 
+        # --- E. Impact Stats Panel ---
+        self.stats_frame = tk.Frame(self.main_frame, bg="#080800", pady=5, padx=15, highlightbackground=COLORS["border"], highlightthickness=1)
+        self.stats_frame.pack(fill=tk.X, pady=(5, 0))
+
+        self.lbl_stats = tk.Label(self.stats_frame, text="Clicks saved: 0  Voice commands: 0  Cursor distance: 0 px", fg=COLORS["blue"], bg="#080800", font=("Courier", 7, "italic"))
+        self.lbl_stats.pack(fill=tk.X)
+
         # State tracking for UI
         self.fps_queue = collections.deque(maxlen=30)
         self.last_voice_status = ""
@@ -138,23 +148,45 @@ class UIOverlay(BaseUIEngine):
             self.targeting_overlay.title("Targeting Overlay")
             self.targeting_overlay.attributes('-fullscreen', True)
             self.targeting_overlay.attributes('-topmost', True)
-
-            self.trans_color = '#000001'
-            self.targeting_overlay.attributes('-transparentcolor', self.trans_color)
-            self.targeting_overlay.configure(bg=self.trans_color)
             self.targeting_overlay.overrideredirect(True)
 
-            try:
-                import ctypes
-                hwnd = self.targeting_overlay.winfo_id()
-                ctypes.windll.user32.SetWindowLongW(hwnd, -20, ctypes.windll.user32.GetWindowLongW(hwnd, -20) | 0x00080000 | 0x00000020)
-            except Exception:
-                pass
+            self.trans_color = '#000001'
+            self.targeting_overlay.configure(bg=self.trans_color)
+
+            # Try Windows specific transparency, fallback gracefully for Linux
+            import platform
 
             self.targeting_canvas = tk.Canvas(self.targeting_overlay, bg=self.trans_color, highlightthickness=0)
             self.targeting_canvas.pack(fill=tk.BOTH, expand=True)
+
+            if platform.system() == "Windows":
+                try:
+                    self.targeting_overlay.attributes('-transparentcolor', self.trans_color)
+                except tk.TclError:
+                    pass
+
+                try:
+                    import ctypes
+                    hwnd = self.targeting_overlay.winfo_id()
+                    ctypes.windll.user32.SetWindowLongW(hwnd, -20, ctypes.windll.user32.GetWindowLongW(hwnd, -20) | 0x00080000 | 0x00000020)
+                except Exception:
+                    pass
+            else:
+                # On Linux/macOS, use wait_visibility to set window transparent
+                try:
+                    self.targeting_overlay.wait_visibility(self.targeting_overlay)
+                    self.targeting_overlay.attributes('-alpha', 0.8) # Partially transparent
+
+                    # Alternatively, if composite manager is running and we can't do full transparency
+                    # we do a partial alpha so at least the bounding boxes show without blacking out the screen fully.
+                    # Best attempt at click-through and transparency on linux:
+                    # Note: Click-through on X11 is complex without specific extensions,
+                    # but setting alpha helps visibility.
+                except Exception as e:
+                    logger.warning(f"Linux transparency fallback failed: {e}")
+
         except Exception as e:
-            print(f"Failed to initialize targeting overlay: {e}")
+            logger.exception(f"Failed to initialize targeting overlay: {e}")
 
     def trigger_log(self, message):
         self.logs.pop(0)
@@ -207,6 +239,11 @@ class UIOverlay(BaseUIEngine):
                 self.bio_sync = min(99.9, 98.0 + random.random() * 1.9)
                 self.sync_label.config(text=f"{self.bio_sync:.1f}%")
 
+            clicks = self.shared_state.get("clicks_saved", 0)
+            commands = self.shared_state.get("voice_commands_executed", 0)
+            distance = int(self.shared_state.get("cursor_distance_traveled", 0))
+            self.lbl_stats.config(text=f"Clicks saved: {clicks} · Voice commands: {commands} · Cursor distance: {distance:,} px")
+
             voice_status = self.shared_state.get("voice_status", "")
             if voice_status != self.last_voice_status and voice_status:
                 self.trigger_log(voice_status)
@@ -229,9 +266,23 @@ class UIOverlay(BaseUIEngine):
                     cv2.putText(frame_rgb, text, (text_x, text_y), font, scale, (255, 0, 0), thickness + 2) # Blue Glow
                     cv2.putText(frame_rgb, text, (text_x, text_y), font, scale, (255, 240, 0), thickness) # Cyan inner
 
+                    landmarks = payload.get('landmarks')
+                    if landmarks:
+                        # Draw Eye Landmarks (rough indices for left and right eyes)
+                        # Left eye centers around 468, Right eye centers around 473
+                        eye_indices = [468, 473]
+                        for idx in eye_indices:
+                            if idx < len(landmarks):
+                                lm = landmarks[idx]
+                                # Vision pipeline frames are flipped horizontally before being sent to UI queue,
+                                # however the landmarks themselves are not flipped in their raw 0-1 coordinates.
+                                ex = int((1.0 - lm.x) * self.cam_width)
+                                ey = int(lm.y * self.cam_height)
+                                cv2.circle(frame_rgb, (ex, ey), 3, (0, 255, 0), 1) # Green circle
+
                     nose_tip = payload.get('nose_tip')
                     if nose_tip:
-                        nx = int(nose_tip['x'] * self.cam_width)
+                        nx = int((1.0 - nose_tip['x']) * self.cam_width) # Flip X
                         ny = int(nose_tip['y'] * self.cam_height)
 
                         # Blue Crosshair
@@ -265,12 +316,12 @@ class UIOverlay(BaseUIEngine):
                     self.canvas.image = imgtk
 
         except Exception as e:
-            print(f"UI Error: {e}")
+            logger.exception(f"UI Error: {e}")
 
         self.root.after(30, self.update_frame)
 
     def start(self):
-        print("Starting UI Overlay...")
+        logger.info("Starting UI Overlay...")
         self.update_frame()
         self.root.mainloop()
 

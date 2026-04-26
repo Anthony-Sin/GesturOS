@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import os
 import io
 import pygame
@@ -32,7 +35,7 @@ class AudioPlayer:
                     try:
                         self.elevenlabs_client = ElevenLabs(api_key=api_key)
                     except Exception as e:
-                        print(f"Failed to init ElevenLabs client: {e}")
+                        logger.error(f"Failed to init ElevenLabs client: {e}")
 
                 # Start TTS worker thread to prevent overlapping audio
                 self.tts_queue = queue.Queue()
@@ -49,9 +52,9 @@ class AudioPlayer:
                     'dictation_stop': self._generate_chime([659, 523], 0.15)
                 }
                 AudioPlayer._initialized = True
-                print("Audio Engine initialized successfully.")
+                logger.info("Audio Engine initialized successfully.")
             except Exception as e:
-                print(f"Failed to initialize audio engine: {e}")
+                logger.error(f"Failed to initialize audio engine: {e}")
                 # We should still initialize tts_queue for fallback text printing even if pygame fails
                 if not hasattr(self, 'elevenlabs_client'):
                     self.elevenlabs_client = None
@@ -127,7 +130,7 @@ class AudioPlayer:
     def speak(self, text):
         if not text:
             return
-        print(f"[Audio Engine Says]: {text}")
+        logger.info(f"[Audio Engine Says]: {text}")
         self.tts_queue.put(text)
 
     def _tts_worker(self):
@@ -168,11 +171,11 @@ class AudioPlayer:
 
                             played_audio = True
                         except pygame.error as e:
-                            print(f"Pygame music failed to play ElevenLabs audio: {e}")
+                            logger.error(f"Pygame music failed to play ElevenLabs audio: {e}")
                 except Exception as e:
-                    print(f"ElevenLabs generation failed: {e}")
+                    logger.error(f"ElevenLabs generation failed: {e}")
 
             if not played_audio:
-                print(f"[Audio Engine Backup Print]: {text}")
+                logger.info(f"[Audio Engine Backup Print]: {text}")
 
             self.tts_queue.task_done()

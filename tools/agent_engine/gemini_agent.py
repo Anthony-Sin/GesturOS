@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import os
 import io
 import time
@@ -27,21 +30,32 @@ class GeminiDesktopAgent(BaseBlindAgent):
         self.shared_state = shared_state
         self.audio_player = audio_player
         self.api_key = os.getenv("GEMINI_API_KEY")
-        if not self.api_key:
-            print("WARNING: GEMINI_API_KEY not found in .env. Agent will not work.")
 
-        try:
-            self.client = genai.Client(api_key=self.api_key)
-        except Exception as e:
-            print(f"Failed to init Gemini Client: {e}")
-            self.client = None
+        self.client = None
+        self.microphone = None
+
+        if not self.api_key:
+            logger.warning("GEMINI_API_KEY not found in .env. Agent features will be disabled.")
+        else:
+            try:
+                self.client = genai.Client(api_key=self.api_key)
+            except Exception as e:
+                logger.exception(f"Failed to init Gemini Client. Agent features will be disabled: {e}")
+                self.client = None
 
         self.recognizer = sr.Recognizer()
         try:
             self.microphone = sr.Microphone()
         except OSError:
-            print("WARNING: No microphone found. Agent cannot hear commands.")
+            logger.warning("No microphone found. Agent cannot hear commands.")
             self.microphone = None
+
+        # Print initialization validation
+        logger.info("=== GeminiDesktopAgent Initialization ===")
+        logger.info(f"API Key Present: {'Yes' if self.api_key else 'No'}")
+        logger.info(f"Gemini Client Loaded: {'Yes' if self.client else 'No'}")
+        logger.info(f"Microphone Loaded: {'Yes' if self.microphone else 'No'}")
+        logger.info("=========================================")
 
         self.recognizer.dynamic_energy_threshold = True
         self.recognizer.energy_threshold = 300
@@ -57,18 +71,18 @@ class GeminiDesktopAgent(BaseBlindAgent):
         if self.audio_player:
             self.audio_player.speak(text)
         else:
-            print(f"[Agent Says]: {text}")
+            logger.info(f"[Agent Says]: {text}")
 
     def start(self):
         self.running = True
 
         if self.microphone:
-            print("Adjusting microphone for ambient noise...")
+            logger.info("Adjusting microphone for ambient noise...")
             try:
                 with self.microphone as source:
                     self.recognizer.adjust_for_ambient_noise(source, duration=2)
             except Exception as e:
-                print(f"Mic init error: {e}")
+                logger.info(f"Mic init error: {e}")
 
         self.speak("AI Agent ready. Say 'Agent' followed by a command to begin.")
 
@@ -89,7 +103,14 @@ class GeminiDesktopAgent(BaseBlindAgent):
 
 
     def _run_loop(self):
+        if not self.client:
+            logger.warning("Agent disabled due to missing client/API key.")
+            self.running = False
+            return
+
         if not self.microphone:
+            logger.warning("Agent disabled due to missing microphone.")
+            self.running = False
             return
 
         while self.running:
@@ -98,7 +119,7 @@ class GeminiDesktopAgent(BaseBlindAgent):
                     audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=10)
 
                 text = self.recognizer.recognize_google(audio).lower()
-                print(f"[Heard]: {text}")
+                logger.info(f"[Heard]: {text}")
 
                 # Strict keyword gateway
                 if "agent" in text:
@@ -123,16 +144,16 @@ class GeminiDesktopAgent(BaseBlindAgent):
             except sr.UnknownValueError:
                 pass
             except sr.RequestError as e:
-                print(f"Speech Service error: {e}")
+                logger.info(f"Speech Service error: {e}")
             except Exception as e:
-                print(f"Agent Loop error: {e}")
+                logger.info(f"Agent Loop error: {e}")
 
 
     def _route_intent(self, command):
-        print(f"[Tier 2 Router] Processing: '{command}'")
+        logger.info(f"[Tier 2 Router] Processing: '{command}'")
 
         if not self.client:
-            print("No Gemini client available.")
+            logger.info("No Gemini client available.")
             return
 
         flash_prompt = f"""
@@ -237,16 +258,16 @@ User command: "{command}"
                     elif func_name == "ignore_non_command_speech":
                         self._tool_ignore_non_command_speech(args["reason"])
                     else:
-                        print(f"Unknown tool called by Flash: {func_name}")
+                        logger.info(f"Unknown tool called by Flash: {func_name}")
                 else:
                     # Flash output raw text instead of a tool
-                    print(f"[Tier 2 Router] Warning: Flash ignored tools and output text: {part.text}")
+                    logger.info(f"[Tier 2 Router] Warning: Flash ignored tools and output text: {part.text}")
                     self._tool_ignore_non_command_speech("LLM returned raw text instead of tool call.")
             else:
-                 print("[Tier 2 Router] Error: Empty response from Flash.")
+                 logger.info("[Tier 2 Router] Error: Empty response from Flash.")
 
         except Exception as e:
-            print(f"Flash Routing Error: {e}")
+            logger.info(f"Flash Routing Error: {e}")
 
     def _denormalize_x(self, x: int) -> int:
         return int(x / 1000 * self.screen_width)
@@ -275,7 +296,7 @@ User command: "{command}"
             action_result = {}
             fname = function_call.name
             args = function_call.args
-            print(f"  -> Agent Executing: {fname} with args: {args}")
+            logger.info(f"  -> Agent Executing: {fname} with args: {args}")
 
             try:
                 if fname in ["click", "type"]:
@@ -292,7 +313,7 @@ User command: "{command}"
 
                     # Wait for 1.5 seconds to allow voice cancellation
                     if self._wait_for_cancellation(1.5):
-                        print("Action cancelled by user!")
+                        logger.info("Action cancelled by user!")
                         self.shared_state["currently_doing"] = "ACTION CANCELLED"
                         self.shared_state["agent_target_bbox"] = None
                         action_result = {"error": "User cancelled the action."}
@@ -305,11 +326,15 @@ User command: "{command}"
                     if fname == "click":
                         self.shared_state["currently_doing"] = f"CLICKING AT {actual_x}, {actual_y}"
                         pyautogui.click(actual_x, actual_y)
+                        with self.shared_state["lock"]:
+                            self.shared_state["clicks_saved"] = self.shared_state.get("clicks_saved", 0) + 1
                     elif fname == "type":
                         self.shared_state["currently_doing"] = f"TYPING: {args.get('text', '')[:10]}..."
                         text = args["text"]
                         press_enter = args.get("press_enter", False)
                         pyautogui.click(actual_x, actual_y)
+                        with self.shared_state["lock"]:
+                            self.shared_state["clicks_saved"] = self.shared_state.get("clicks_saved", 0) + 1
                         time.sleep(0.1)
                         pyautogui.write(text, interval=0.01)
                         if press_enter:
@@ -325,12 +350,12 @@ User command: "{command}"
                         pyautogui.scroll(300 * amount)
                 else:
                     self.shared_state["currently_doing"] = f"EXECUTING {fname.upper()}"
-                    print(f"Warning: Unimplemented function {fname}")
+                    logger.info(f"Warning: Unimplemented function {fname}")
                     action_result = {"error": f"Function {fname} not supported by this OS layer yet."}
 
                 time.sleep(1.5)
             except Exception as e:
-                print(f"Error executing {fname}: {e}")
+                logger.info(f"Error executing {fname}: {e}")
                 action_result = {"error": str(e)}
 
             results.append((fname, action_result))
@@ -376,7 +401,7 @@ User command: "{command}"
 
         turn_limit = 10
         for i in range(turn_limit):
-            print(f"\n--- Agent Turn {i+1} ---")
+            logger.info(f"\n--- Agent Turn {i+1} ---")
 
             try:
                 with self.microphone as source:
@@ -403,7 +428,7 @@ User command: "{command}"
                 has_function_calls = any(part.function_call for part in candidate.content.parts)
                 if not has_function_calls:
                     final_text = " ".join([part.text for part in candidate.content.parts if part.text])
-                    print("Agent finished:", final_text)
+                    logger.info("Agent finished:", final_text)
                     self.shared_state["currently_doing"] = "TASK COMPLETE"
                     self.speak("Task complete.")
                     break
@@ -418,7 +443,7 @@ User command: "{command}"
 
                 contents.append(Content(role="user", parts=parts))
             except Exception as e:
-                print(f"Agent turn failed: {e}")
+                logger.info(f"Agent turn failed: {e}")
                 self.speak("I encountered an issue while trying to complete the task.")
                 self.shared_state["currently_doing"] = "ERROR: TURN FAILED"
                 break
@@ -428,22 +453,22 @@ User command: "{command}"
 
     # --- Local Tools (Verbs) ---
     def _tool_execute_keyboard_shortcut(self, keys: list):
-        print(f"[Tool] Executing shortcut: {keys}")
+        logger.info(f"[Tool] Executing shortcut: {keys}")
         try:
             pyautogui.hotkey(*keys)
         except Exception as e:
-            print(f"Shortcut error: {e}")
+            logger.info(f"Shortcut error: {e}")
 
     def _tool_type_string(self, text: str):
-        print(f"[Tool] Typing string: {text}")
+        logger.info(f"[Tool] Typing string: {text}")
         try:
             pyautogui.write(text, interval=0.01)
         except Exception as e:
-            print(f"Typing error: {e}")
+            logger.info(f"Typing error: {e}")
 
     def _tool_escalate_to_agent(self, task_description: str):
-        print(f"[Tool] Escalating to Full Agent: {task_description}")
+        logger.info(f"[Tool] Escalating to Full Agent: {task_description}")
         self._handle_agent_loop(task_description)
 
     def _tool_ignore_non_command_speech(self, reason: str):
-        print(f"[Tool] Ignoring speech. Reason: {reason}")
+        logger.info(f"[Tool] Ignoring speech. Reason: {reason}")

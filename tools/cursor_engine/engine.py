@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import pyautogui
 import queue
 import time
@@ -22,6 +25,11 @@ class CursorEngine(BaseCursorEngine):
 
         self.last_raw_x = None
         self.last_raw_y = None
+
+        # Track physical cursor pos to calculate actual distance
+        self.last_cursor_x = None
+        self.last_cursor_y = None
+
         self.deadzone_velocity = self.config.get("DEADZONE_VELOCITY", 0.003)
 
         self.active_zone_x_center = self.config.get("ACTIVE_ZONE_X_CENTER", 0.5)
@@ -33,7 +41,7 @@ class CursorEngine(BaseCursorEngine):
         self.running = True
         thread = threading.Thread(target=self._run)
         thread.start()
-        print(f"Cursor Engine started. Screen resolution: {self.screen_w}x{self.screen_h}")
+        logger.info(f"Cursor Engine started. Screen resolution: {self.screen_w}x{self.screen_h}")
         return thread
 
     def stop(self):
@@ -127,7 +135,17 @@ class CursorEngine(BaseCursorEngine):
                 if snap_target:
                     # Bypassing filter completely for instant zero-latency snap
                     try:
-                        pyautogui.moveTo(int(snap_target[0]), int(snap_target[1]))
+                        new_x, new_y = int(snap_target[0]), int(snap_target[1])
+                        pyautogui.moveTo(new_x, new_y)
+
+                        if self.last_cursor_x is not None and self.last_cursor_y is not None:
+                            dist = ((new_x - self.last_cursor_x)**2 + (new_y - self.last_cursor_y)**2)**0.5
+                            with self.shared_state["lock"]:
+                                self.shared_state["cursor_distance_traveled"] = self.shared_state.get("cursor_distance_traveled", 0) + dist
+
+                        self.last_cursor_x = new_x
+                        self.last_cursor_y = new_y
+
                         # Feed the target into the filter so it doesn't jump wildly when releasing
                         self.filter_x(snap_target[0], timestamp)
                         self.filter_y(snap_target[1], timestamp)
@@ -139,7 +157,16 @@ class CursorEngine(BaseCursorEngine):
                 filtered_y = self.filter_y(target_y, timestamp)
 
                 try:
-                    pyautogui.moveTo(int(filtered_x), int(filtered_y))
+                    new_x, new_y = int(filtered_x), int(filtered_y)
+                    pyautogui.moveTo(new_x, new_y)
+
+                    if self.last_cursor_x is not None and self.last_cursor_y is not None:
+                        dist = ((new_x - self.last_cursor_x)**2 + (new_y - self.last_cursor_y)**2)**0.5
+                        with self.shared_state["lock"]:
+                            self.shared_state["cursor_distance_traveled"] = self.shared_state.get("cursor_distance_traveled", 0) + dist
+
+                    self.last_cursor_x = new_x
+                    self.last_cursor_y = new_y
                 except Exception as e:
                     pass
 
