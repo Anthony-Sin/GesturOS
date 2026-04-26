@@ -54,5 +54,10 @@ default_config = {
 
     # --- Scrolling Settings ---
     "SCROLL_BROW_THRESHOLD": 0.4,
-    "SCROLL_HOLD_DURATION": 5.0
+    "SCROLL_HOLD_DURATION": 5.0,
+
+    # --- Look Away Auto-Pause Settings ---
+    # Angle in degrees. If head yaw or pitch exceeds this, tracking automatically pauses.
+    "LOOK_AWAY_PITCH_THRESHOLD": 35.0,
+    "LOOK_AWAY_YAW_THRESHOLD": 35.0
 }

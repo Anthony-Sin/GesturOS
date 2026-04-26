@@ -1,6 +1,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+import math
 import time
 import queue
 import urllib.request
@@ -18,6 +19,22 @@ def download_model_if_missing():
         print("Downloading Face Landmarker model...")
         urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
         print("Download complete.")
+
+def rotation_matrix_to_angles(rotation_matrix):
+    """
+    Calculate Euler angles from rotation matrix.
+    :param rotation_matrix: A 3x3 matrix representing the rotation
+    :return: A tuple (pitch, yaw, roll) in degrees
+    """
+    x = math.atan2(rotation_matrix[2, 1], rotation_matrix[2, 2])
+    y = math.atan2(-rotation_matrix[2, 0], math.sqrt(rotation_matrix[2, 1] ** 2 + rotation_matrix[2, 2] ** 2))
+    z = math.atan2(rotation_matrix[1, 0], rotation_matrix[0, 0])
+
+    pitch = math.degrees(x)
+    yaw = math.degrees(y)
+    roll = math.degrees(z)
+
+    return pitch, yaw, roll
 
 class VisionPipeline(BaseVisionEngine):
     def __init__(self, data_queue: queue.Queue, config: dict, shared_state: dict):
@@ -54,11 +71,14 @@ class VisionPipeline(BaseVisionEngine):
         self.previous_frame_gray = None
         self.last_known_payload = None
 
+        # Look away auto-pause settings
+        self.look_away_pitch_thresh = self.config.get("LOOK_AWAY_PITCH_THRESHOLD", 35.0)
+        self.look_away_yaw_thresh = self.config.get("LOOK_AWAY_YAW_THRESHOLD", 35.0)
+
     def start(self):
         self.running = True
         cap = cv2.VideoCapture(0)
 
-        # If camera cannot be opened (e.g. headless environment), log and exit gracefully
         if not cap.isOpened():
             print("Warning: Could not open video capture. Stopping vision pipeline.")
             self.running = False
@@ -73,16 +93,12 @@ class VisionPipeline(BaseVisionEngine):
                 print("Ignoring empty camera frame.")
                 continue
 
-            # The timestamp must be monotonically increasing.
             timestamp_ms = int(time.time() * 1000)
 
-            # Frame Diffing Optimization
-            # Convert frame to grayscale for faster comparison
             current_frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             should_process_mediapipe = True
             if self.previous_frame_gray is not None and self.last_known_payload is not None:
-                # Calculate mean absolute difference between current and previous frame
                 diff = cv2.absdiff(current_frame_gray, self.previous_frame_gray)
                 mean_diff = np.mean(diff)
 
@@ -92,14 +108,14 @@ class VisionPipeline(BaseVisionEngine):
             landmarks = None
             blendshape_dict = {}
             nose_tip = None
+            is_looking_away = False
 
             if not should_process_mediapipe:
-                # Skip MediaPipe processing, retrieve last known data
                 landmarks = self.last_known_payload['landmarks']
                 blendshape_dict = self.last_known_payload['blendshapes']
                 nose_tip_dict = self.last_known_payload['nose_tip']
+                is_looking_away = self.last_known_payload.get('is_looking_away', False)
 
-                # Mock a nose_tip object to pass into the locking logic below
                 class MockNoseTip:
                     def __init__(self, d):
                         self.x = d['x']
@@ -107,25 +123,27 @@ class VisionPipeline(BaseVisionEngine):
                         self.z = d.get('z', 0)
                 nose_tip = MockNoseTip(nose_tip_dict)
             else:
-                # Convert the frame received from OpenCV to a MediaPipe’s Image object.
                 mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
                 detection_result = self.detector.detect_for_video(mp_image, timestamp_ms)
 
                 if detection_result.face_landmarks:
                     landmarks = detection_result.face_landmarks[0]
                     blendshapes = detection_result.face_blendshapes[0] if detection_result.face_blendshapes else []
 
-                    # Extract nose tip (landmark 1 is often used, sometimes 4 depending on the specific topology, we'll use 1)
-                    # Note: MediaPipe coordinates are normalized [0.0, 1.0]
                     nose_tip = landmarks[1]
-
-                    # Extract relevant blendshapes into a fast dict
                     blendshape_dict = {cat.category_name: cat.score for cat in blendshapes}
 
+                    # Check for "Look Away" using transformation matrix
+                    if detection_result.facial_transformation_matrixes:
+                        matrix = detection_result.facial_transformation_matrixes[0]
+                        # Extract 3x3 rotation matrix from the 4x4 matrix
+                        rotation_matrix = matrix[:3, :3]
+                        pitch, yaw, roll = rotation_matrix_to_angles(rotation_matrix)
+
+                        if abs(pitch) > self.look_away_pitch_thresh or abs(yaw) > self.look_away_yaw_thresh:
+                            is_looking_away = True
+
             if nose_tip is not None:
-                # --- Locking Mechanism Logic ---
-                # We calculate lock progression on EVERY frame, regardless of if MediaPipe was skipped or not
                 current_time = time.time()
 
                 lock_progress = 0.0
@@ -133,21 +151,16 @@ class VisionPipeline(BaseVisionEngine):
                     self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
                     self.anchor_start_time = current_time
                 else:
-                    # Calculate distance from anchor
                     dx = nose_tip.x - self.anchor_point['x']
                     dy = nose_tip.y - self.anchor_point['y']
                     distance = (dx**2 + dy**2)**0.5
 
                     if not self.is_locked:
-                        # Check if we should lock
                         if distance > self.movement_threshold:
-                            # Reset anchor if moved
                             self.anchor_point = {'x': nose_tip.x, 'y': nose_tip.y}
                             self.anchor_start_time = current_time
                         else:
-                            # Calculate progress (starts showing after 3 seconds)
                             elapsed = current_time - self.anchor_start_time
-                            # Total duration is 5s (by default). The first 3s are hidden. The last 2s show progress 0 -> 1.0
                             hide_duration = 3.0
 
                             if elapsed > hide_duration:
@@ -156,14 +169,12 @@ class VisionPipeline(BaseVisionEngine):
                             else:
                                 lock_progress = 0.0
 
-                            # Check if duration has passed
                             if elapsed >= self.lock_duration_threshold:
                                 self.is_locked = True
                                 print("Pipeline: Interface LOCKED.")
                                 lock_progress = 1.0
                     else:
                         lock_progress = 1.0
-                        # We are locked. Check if we should unlock (breakout)
                         if distance > self.breakout_threshold:
                             self.is_locked = False
                             print("Pipeline: Interface UNLOCKED.")
@@ -175,23 +186,21 @@ class VisionPipeline(BaseVisionEngine):
                     'timestamp': timestamp_ms,
                     'nose_tip': {'x': nose_tip.x, 'y': nose_tip.y, 'z': nose_tip.z},
                     'blendshapes': blendshape_dict,
-                    'landmarks': landmarks, # Passing all landmarks for the navigator to use
-                    'frame': cv2.flip(frame, 1), # Add a flipped copy of the frame for the UI
+                    'landmarks': landmarks,
+                    'frame': cv2.flip(frame, 1),
                     'is_locked': self.is_locked,
-                    'lock_progress': lock_progress
+                    'lock_progress': lock_progress,
+                    'is_looking_away': is_looking_away
                 }
 
-                # Cache successful payload and frame for future diffing
                 self.last_known_payload = payload
                 self.previous_frame_gray = current_frame_gray
 
-                # Non-blocking put
                 try:
                     self.data_queue.put_nowait(payload)
                 except queue.Full:
-                    pass # Drop frame if queue is full to maintain real-time performance
+                    pass
 
-            # Throttle to target FPS
             elapsed = time.time() - start_time
             sleep_time = self.frame_duration - elapsed
             if sleep_time > 0:

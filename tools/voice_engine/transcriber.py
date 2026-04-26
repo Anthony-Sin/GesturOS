@@ -53,7 +53,8 @@ class VoiceTranscriber(BaseVoiceEngine):
             try:
                 self.shared_state["voice_status"] = "Listening for 'transcribe me'..."
                 with self.microphone as source:
-                    audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=10)
+                    # To prevent blocking for cancellation, listen timeout is reduced to 2s
+                    audio = self.recognizer.listen(source, timeout=2, phrase_time_limit=10)
 
                 self.shared_state["voice_status"] = "Processing..."
                 text = self.recognizer.recognize_google(audio).lower()
@@ -78,7 +79,7 @@ class VoiceTranscriber(BaseVoiceEngine):
             except sr.RequestError as e:
                 print(f"Could not request results from Speech Recognition service; {e}")
             except Exception as e:
-                print(f"Voice Transcriber error: {e}")
+                pass
 
     def _dictate(self):
         self.shared_state["dictation_active"] = True

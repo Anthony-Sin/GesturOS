@@ -48,10 +48,23 @@ class CursorEngine(BaseCursorEngine):
 
     def _run(self):
         self.was_locked = False
+        self.was_looking_away = False
 
         while self.running:
             try:
                 payload = self.data_queue.get(timeout=0.1)
+
+                is_looking_away = payload.get('is_looking_away', False)
+                if is_looking_away:
+                    if not self.was_looking_away:
+                        self.shared_state["currently_doing"] = "TRACKING PAUSED (LOOK AWAY)"
+                        self.was_looking_away = True
+                    # Skip tracking loop to instantly pause
+                    continue
+                else:
+                    if self.was_looking_away:
+                        self.shared_state["currently_doing"] = "AWAITING COMMAND"
+                        self.was_looking_away = False
 
                 if self.shared_state.get("dictation_active", False):
                     continue
@@ -94,11 +107,20 @@ class CursorEngine(BaseCursorEngine):
                      self.filter_x.beta = 0.8
                      self.filter_y.beta = 0.8
 
-                if skip_movement:
-                    continue
-
                 self.last_raw_x = raw_x
                 self.last_raw_y = raw_y
+
+                scaled_x = self._normalize_to_active_zone(1.0 - raw_x, self.active_zone_x_center, self.active_zone_width)
+                scaled_y = self._normalize_to_active_zone(raw_y, self.active_zone_y_center, self.active_zone_height)
+
+                target_x = scaled_x * self.screen_w
+                target_y = scaled_y * self.screen_h
+
+                # Expose raw mapped target for magnetism logic so it doesn't infinite loop on physical mouse
+                self.shared_state["raw_nose_target"] = (target_x, target_y)
+
+                if skip_movement:
+                    continue
 
                 # Check for instant snap target from Magnetism
                 snap_target = self.shared_state.get("magnet_snap_target")
@@ -112,12 +134,6 @@ class CursorEngine(BaseCursorEngine):
                     except Exception:
                         pass
                     continue # Skip normal tracking this frame
-
-                scaled_x = self._normalize_to_active_zone(1.0 - raw_x, self.active_zone_x_center, self.active_zone_width)
-                scaled_y = self._normalize_to_active_zone(raw_y, self.active_zone_y_center, self.active_zone_height)
-
-                target_x = scaled_x * self.screen_w
-                target_y = scaled_y * self.screen_h
 
                 filtered_x = self.filter_x(target_x, timestamp)
                 filtered_y = self.filter_y(target_y, timestamp)
