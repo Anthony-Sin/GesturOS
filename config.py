@@ -4,29 +4,33 @@ default_config = {
     "TARGET_FPS": 30,
 
     # --- Cursor Engine ---
+    # Raising active zone centers moves the start point to track head positioning.
     "ACTIVE_ZONE_X_CENTER": 0.5,
     "ACTIVE_ZONE_Y_CENTER": 0.6,
-    "ACTIVE_ZONE_WIDTH": 0.18,
-    "ACTIVE_ZONE_HEIGHT": 0.06,
 
-    "BASE_ALPHA": 0.2,
-    "PRECISION_ALPHA": 0.05,
-    "VELOCITY_THRESHOLD": 0.005,
-    "DEADZONE_VELOCITY": 0.003,
+    # Shrinking width/height makes the cursor move more distance per degree of head movement.
+    # We shrink these so the user needs very small head movements.
+    "ACTIVE_ZONE_WIDTH": 0.08,
+    "ACTIVE_ZONE_HEIGHT": 0.03,
+
+    # Lowering alpha increases smoothing so the cursor glides rather than snapping around.
+    "BASE_ALPHA": 0.05,
+    "PRECISION_ALPHA": 0.01,
+
+    # Raising velocity thresholds prevents micro-head movements (wobbles) from moving the cursor.
+    "VELOCITY_THRESHOLD": 0.02,
+    "DEADZONE_VELOCITY": 0.015,
 
     # --- Action Dispatcher (Blendshapes) ---
+    # Raising the blink threshold requires a harder/more closed eye blink to register.
     "BLINK_THRESHOLD": 0.35,
-    "BLINK_DURATION_THRESHOLD": 0.15,
-    "BLINK_COOLDOWN": 0.8,
-    "SMILE_THRESHOLD": 0.60,
-    "SMILE_COOLDOWN": 1.0,
-    "JAW_THRESHOLD": 0.60,
-    "JAW_COOLDOWN": 0.1,
 
-    # --- System Navigator (Head Pose) ---
-    "YAW_THRESHOLD": 30.0,
-    "PITCH_THRESHOLD": 20.0,
-    "NAVIGATOR_COOLDOWN": 1.5,
+    # Raising the duration threshold forces the user to deliberately hold their eyes shut,
+    # preventing reflex blinks from triggering clicks.
+    "BLINK_DURATION_THRESHOLD": 0.40,
+
+    # Raising cooldown makes it physically impossible to double-fire a blink action unintentionally.
+    "BLINK_COOLDOWN": 2.0,
 
     # --- UI Overlay ---
     "UI_WIDTH": 320,
