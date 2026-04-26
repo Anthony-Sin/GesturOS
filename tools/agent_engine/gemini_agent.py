@@ -222,6 +222,16 @@ If the command requires seeing the screen to know where to click or what to inte
             args = function_call.args
             print(f"  -> Agent Executing: {fname} with args: {args}")
 
+            # Update UI immediately BEFORE the action executes
+            if fname == "click":
+                self.shared_state["currently_doing"] = f"CLICKING AT {args.get('x')}, {args.get('y')}"
+            elif fname == "type":
+                self.shared_state["currently_doing"] = f"TYPING: {args.get('text', '')[:10]}..."
+            elif fname == "scroll":
+                self.shared_state["currently_doing"] = f"SCROLLING {args.get('direction', 'down').upper()}"
+            else:
+                self.shared_state["currently_doing"] = f"EXECUTING {fname.upper()}"
+
             try:
                 if fname == "click":
                     actual_x = self._denormalize_x(args["x"])
@@ -310,8 +320,11 @@ If the command requires seeing the screen to know where to click or what to inte
 
     def _handle_agent_loop(self, user_command):
         self.speak(f"Okay, taking over. I will try to: {user_command}")
+        self.shared_state["currently_doing"] = "PLANNING AGENT ACTIONS..."
+
         if not self.client:
             self.speak("API key missing.")
+            self.shared_state["currently_doing"] = "ERROR: API KEY MISSING"
             return
 
         # Setup config for Computer Use
@@ -341,6 +354,7 @@ If the command requires seeing the screen to know where to click or what to inte
                 text = self.recognizer.recognize_google(audio).lower()
                 if "agent stop" in text or "stop agent" in text or "cancel" in text:
                     self.speak("Stopping the agent.")
+                    self.shared_state["currently_doing"] = "AGENT STOPPED BY USER"
                     break
             except Exception:
                 pass # No interrupt heard
@@ -370,6 +384,7 @@ If the command requires seeing the screen to know where to click or what to inte
                 if not has_function_calls:
                     final_text = " ".join([part.text for part in candidate.content.parts if part.text])
                     print("Agent finished:", final_text)
+                    self.shared_state["currently_doing"] = "TASK COMPLETE"
                     self.speak("Task complete.")
                     break
 
@@ -388,6 +403,8 @@ If the command requires seeing the screen to know where to click or what to inte
             except Exception as e:
                 print(f"Agent turn failed: {e}")
                 self.speak("I encountered an issue while trying to complete the task.")
+                self.shared_state["currently_doing"] = "ERROR: TURN FAILED"
                 break
         else:
              self.speak("Turn limit reached.")
+             self.shared_state["currently_doing"] = "ERROR: TURN LIMIT REACHED"
