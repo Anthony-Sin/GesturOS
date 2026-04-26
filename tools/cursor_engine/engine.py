@@ -72,18 +72,16 @@ class CursorEngine(BaseCursorEngine):
 
                 is_locked = payload.get('is_locked', False)
 
-                # Handle drag and drop via lock state
+                # Handle precision mode via lock state (dragging removed per user request)
                 if is_locked and not self.was_locked:
-                    # Just entered lock state, press mouse down for dragging
+                    # Just entered lock state, trigger audio feedback
                     if self.audio_player:
                         self.audio_player.play('lock_engage')
-                    pyautogui.mouseDown()
                     self.was_locked = True
                 elif not is_locked and self.was_locked:
-                    # Just exited lock state, release mouse
+                    # Just exited lock state
                     if self.audio_player:
                         self.audio_player.play('lock_release')
-                    pyautogui.mouseUp()
                     self.was_locked = False
 
                 nose_tip = payload['nose_tip']
@@ -107,8 +105,8 @@ class CursorEngine(BaseCursorEngine):
                 # But to add an 'ultra-precision' effect while locking, we can dynamically adjust the beta.
                 lock_progress = payload.get('lock_progress', 0.0)
                 if lock_progress > 0.0 or is_locked:
-                     self.filter_x.beta = 0.1
-                     self.filter_y.beta = 0.1
+                     self.filter_x.beta = 0.01
+                     self.filter_y.beta = 0.01
                 else:
                      self.filter_x.beta = 0.8
                      self.filter_y.beta = 0.8
