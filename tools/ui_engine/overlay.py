@@ -181,6 +181,7 @@ class UIOverlay(BaseUIEngine):
                 frame = payload['frame']
                 nose_tip = payload['nose_tip']
                 blendshapes = payload['blendshapes']
+                landmarks = payload.get('landmarks', [])
 
                 # Check for full blink for visual feedback
                 blink_left = blendshapes.get('eyeBlinkLeft', 0.0)
@@ -211,6 +212,19 @@ class UIOverlay(BaseUIEngine):
                 self.last_nose_pos = (draw_x, draw_y)
 
                 self.path_points.append((draw_x, draw_y))
+
+                # Extract eye landmarks
+                if landmarks and len(landmarks) > 263:
+                    left_eye_lm = landmarks[33]
+                    left_eye_x = int((1.0 - left_eye_lm.x) * self.window_width)
+                    left_eye_y = int(left_eye_lm.y * self.window_height)
+
+                    right_eye_lm = landmarks[263]
+                    right_eye_x = int((1.0 - right_eye_lm.x) * self.window_width)
+                    right_eye_y = int(right_eye_lm.y * self.window_height)
+                else:
+                    left_eye_x, left_eye_y = -1, -1
+                    right_eye_x, right_eye_y = -1, -1
 
                 # Draw the path on the frame (Sleeker trailing effect)
                 if len(self.path_points) > 1:
@@ -244,14 +258,30 @@ class UIOverlay(BaseUIEngine):
                 # Draw HUD Corners
                 self._draw_hud_corners(frame)
 
-                # Centered Glowing Title
-                title = "ACCESSIBOT"
-                title_size = cv2.getTextSize(title, cv2.FONT_HERSHEY_DUPLEX, 0.6, 1)[0]
-                title_x = (self.window_width - title_size[0]) // 2
-                title_y = 25
-                # Glow effect
-                cv2.putText(frame, title, (title_x, title_y), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 0), 3)
-                cv2.putText(frame, title, (title_x, title_y), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+                # Eye Tracking Status Text & Colors
+                # The prompt requested Right Click when *both* eyes close, which we implemented.
+                # Here we just track individual status for the UI.
+                left_closed = blink_left > 0.45
+                right_closed = blink_right > 0.45
+
+                left_status = "CLOSED" if left_closed else "OPEN"
+                right_status = "CLOSED" if right_closed else "OPEN"
+
+                # Draw Visual Eye Tracking Overlays
+                if left_eye_x != -1 and left_eye_y != -1:
+                    l_color = (0, 0, 255) if left_closed else (0, 255, 0)
+                    cv2.circle(frame, (left_eye_x, left_eye_y), 6, l_color, 2)
+
+                if right_eye_x != -1 and right_eye_y != -1:
+                    r_color = (0, 0, 255) if right_closed else (0, 255, 0)
+                    cv2.circle(frame, (right_eye_x, right_eye_y), 6, r_color, 2)
+
+                # Modern aesthetic text and elements
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(frame, f"L-EYE: {left_status}", (20, 50), font, 0.35,
+                            (0, 255, 0) if left_status == "OPEN" else (0, 0, 255), 1)
+                cv2.putText(frame, f"R-EYE: {right_status}", (20, 70), font, 0.35,
+                            (0, 255, 0) if right_status == "OPEN" else (0, 0, 255), 1)
 
                 # Active States
                 # Determine state
