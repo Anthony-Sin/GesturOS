@@ -810,33 +810,59 @@ class CursorEngine(BaseCursorEngine):
 
                 # Magnetism snap
                 snap_target = self.shared_state.get("magnet_snap_target")
-                if snap_target:
-                    try:
-                        sx, sy = float(snap_target[0]), float(snap_target[1])
-                        breakout_dist = math.hypot(target_x - sx, target_y - sy)
-                        if breakout_dist > self.magnetism_release_distance:
-                            # User moved away intentionally: clear stale snap state.
-                            self.shared_state["magnet_snap_target"] = None
-                            self.shared_state["magnet_target_bbox"] = None
-                        else:
-                            pulled_x = target_x + (sx - target_x) * self.magnetism_pull_strength
-                            pulled_y = target_y + (sy - target_y) * self.magnetism_pull_strength
-                            filtered_x = self.filter_x(pulled_x, timestamp)
-                            filtered_y = self.filter_y(pulled_y, timestamp)
-                            fx, fy = int(filtered_x), int(filtered_y)
+                sniper_mode_active = bool(self.shared_state.get("sniper_mode_active", False))
+
+                if sniper_mode_active:
+                    # In sniper/focus mode, cursor moves EXACTLY to the snap target, and
+                    # normal head movements only serve to cycle candidates (handled in magnetism.py),
+                    # so we completely block the free cursor movement.
+                    if snap_target:
+                        try:
+                            sx, sy = float(snap_target[0]), float(snap_target[1])
+                            # Re-seed the filters to the exact snap target so OneEuro doesn't trail
+                            self.filter_x(sx, timestamp)
+                            self.filter_y(sy, timestamp)
+
+                            fx, fy = int(sx), int(sy)
+                            # Directly move to the snapped item
                             self._move_cursor(fx, fy)
                             continue
-                    except Exception as e:
-                        logger.warning(f"Magnetism pull error: {e}")
+                        except Exception as e:
+                            logger.warning(f"Sniper magnetism jump error: {e}")
+                    else:
+                        # Sniper mode active but no valid target nearby? Keep cursor still,
+                        # but keep updating filters so we don't jump when it toggles off.
+                        self.filter_x(self.last_cursor_pos[0] if self.last_cursor_pos else target_x, timestamp)
+                        self.filter_y(self.last_cursor_pos[1] if self.last_cursor_pos else target_y, timestamp)
+                        continue
+                else:
+                    if snap_target:
+                        try:
+                            sx, sy = float(snap_target[0]), float(snap_target[1])
+                            breakout_dist = math.hypot(target_x - sx, target_y - sy)
+                            if breakout_dist > self.magnetism_release_distance:
+                                # User moved away intentionally: clear stale snap state.
+                                self.shared_state["magnet_snap_target"] = None
+                                self.shared_state["magnet_target_bbox"] = None
+                            else:
+                                pulled_x = target_x + (sx - target_x) * self.magnetism_pull_strength
+                                pulled_y = target_y + (sy - target_y) * self.magnetism_pull_strength
+                                filtered_x = self.filter_x(pulled_x, timestamp)
+                                filtered_y = self.filter_y(pulled_y, timestamp)
+                                fx, fy = int(filtered_x), int(filtered_y)
+                                self._move_cursor(fx, fy)
+                                continue
+                        except Exception as e:
+                            logger.warning(f"Magnetism pull error: {e}")
 
-                # Normal filter + move
-                try:
-                    filtered_x = self.filter_x(target_x, timestamp)
-                    filtered_y = self.filter_y(target_y, timestamp)
-                    fx, fy = int(filtered_x), int(filtered_y)
-                    self._move_cursor(fx, fy)
-                except Exception as e:
-                    logger.error(f"Filter/moveTo error: {e}", exc_info=True)
+                    # Normal filter + move
+                    try:
+                        filtered_x = self.filter_x(target_x, timestamp)
+                        filtered_y = self.filter_y(target_y, timestamp)
+                        fx, fy = int(filtered_x), int(filtered_y)
+                        self._move_cursor(fx, fy)
+                    except Exception as e:
+                        logger.error(f"Filter/moveTo error: {e}", exc_info=True)
 
             except queue.Empty:
                 continue

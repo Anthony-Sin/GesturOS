@@ -29,10 +29,12 @@ class TargetMagnetism(BaseMagnetismEngine):
         self._sniper_last_mode = False
         self._sniper_anchor_point = None
         self._sniper_selected_index = 0
+        self._sniper_last_switch_time = 0
 
     def _reset_sniper_state(self):
         self._sniper_anchor_point = None
         self._sniper_selected_index = 0
+        self._sniper_last_switch_time = 0
         self.shared_state["magnet_target_bbox"] = None
         self.shared_state["magnet_snap_target"] = None
         self.shared_state["sniper_candidate_index"] = 0
@@ -151,18 +153,22 @@ class TargetMagnetism(BaseMagnetismEngine):
 
                 candidates.sort(key=lambda item: item[0])
 
+                now = time.time()
                 if len(candidates) > 1 and self._sniper_anchor_point is not None:
-                    anchor_x, anchor_y = self._sniper_anchor_point
-                    move_dx = mx - anchor_x
-                    move_dy = my - anchor_y
-                    if abs(move_dx) >= self.sniper_switch_threshold_px:
-                        step = 1 if move_dx > 0 else -1
-                        self._sniper_selected_index = (self._sniper_selected_index + step) % len(candidates)
-                        self._sniper_anchor_point = (mx, my)
-                    elif abs(move_dy) >= self.sniper_switch_threshold_px:
-                        step = 1 if move_dy > 0 else -1
-                        self._sniper_selected_index = (self._sniper_selected_index + step) % len(candidates)
-                        self._sniper_anchor_point = (mx, my)
+                    if now - self._sniper_last_switch_time > 0.5: # 0.5 seconds cooldown
+                        anchor_x, anchor_y = self._sniper_anchor_point
+                        move_dx = mx - anchor_x
+                        move_dy = my - anchor_y
+                        if abs(move_dx) >= self.sniper_switch_threshold_px:
+                            step = 1 if move_dx > 0 else -1
+                            self._sniper_selected_index = (self._sniper_selected_index + step) % len(candidates)
+                            self._sniper_anchor_point = (mx, my)
+                            self._sniper_last_switch_time = now
+                        elif abs(move_dy) >= self.sniper_switch_threshold_px:
+                            step = 1 if move_dy > 0 else -1
+                            self._sniper_selected_index = (self._sniper_selected_index + step) % len(candidates)
+                            self._sniper_anchor_point = (mx, my)
+                            self._sniper_last_switch_time = now
 
                 self._sniper_selected_index = max(0, min(self._sniper_selected_index, len(candidates) - 1))
                 _, abs_x, abs_y, w, h, target_cx, target_cy = candidates[self._sniper_selected_index]

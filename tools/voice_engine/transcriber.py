@@ -333,6 +333,8 @@ class VoiceTranscriber(BaseVoiceEngine):
             "sniper on",
             "precision mode on",
             "precision on",
+            "focus mode on",
+            "focus on"
         ]
         off_phrases = [
             "sniper mode off",
@@ -340,10 +342,13 @@ class VoiceTranscriber(BaseVoiceEngine):
             "sniper off",
             "precision mode off",
             "precision off",
+            "focus mode off",
+            "focus off"
         ]
         toggle_phrases = [
             "sniper mode",
             "precision mode",
+            "focus mode",
         ]
 
         enable = None
